@@ -61,7 +61,7 @@ Le système doit :
 - **Runtime** : Node.js
 - **API** : REST (Fastify)
 - **Database** : PostgreSQL
-- **ORM** : Prisma
+- **ORM** : Prisma 7
 - **Services** : Cron pour sync, brief et health checks.
 - **Conventions** :
   - **Fichiers/Dossiers** : `kebab-case` (ex: `user-profile.tsx`, `auth-service.ts`).

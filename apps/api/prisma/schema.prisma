@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum TaskStatus {
+  INBOX
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TaskType {
+  QUICK // < 15 min
+  DEEP_WORK // > 1h
+  COURSE // University/Learning
+  ADMIN // Paperwork, etc
+}
+
+enum TaskContext {
+  PERSONAL
+  WORK
+  LEARNING
+}
+
+// Models
+model User {
+  id    String  @id @default(uuid())
+  email String  @unique
+  name  String?
+
+  // Google OAuth
+  googleId     String  @unique @map("google_id")
+  accessToken  String? @map("access_token") // For Calendar API
+  refreshToken String? @map("refresh_token")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tasks          Task[]
+  calendarEvents CalendarEvent[]
+  dailyBriefs    DailyBrief[]
+  healthChecks   HealthCheck[]
+
+  @@map("users")
+}
+
+model Task {
+  id      String @id @default(uuid())
+  content String
+
+  status  TaskStatus  @default(INBOX)
+  type    TaskType?
+  context TaskContext @default(PERSONAL)
+
+  // Prioritization factors
+  deadline          DateTime?
+  estimatedDuration Int? // In minutes
+  priority          Int       @default(0) // Manual priority (higher = more important)
+
+  // User relationship
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tasks")
+}
+
+model CalendarEvent {
+  id String @id @default(uuid())
+
+  // Google Calendar data
+  googleEventId String  @map("google_event_id") // Original event ID from Google
+  calendarId    String  @map("calendar_id") // Which calendar this event belongs to
+  summary       String // Event title
+  description   String?
+  location      String?
+
+  // Time information
+  startTime DateTime @map("start_time")
+  endTime   DateTime @map("end_time")
+  isAllDay  Boolean  @default(false) @map("is_all_day")
+
+  // Sync metadata
+  lastSyncedAt DateTime @map("last_synced_at")
+
+  // User relationship
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, googleEventId])
+  @@index([userId, startTime])
+  @@map("calendar_events")
+}
+
+model DailyBrief {
+  id String @id @default(uuid())
+
+  // Brief metadata
+  date DateTime @unique @db.Date // The day this brief is for
+
+  // Brief content (plain text for TTS)
+  fullText String @map("full_text") @db.Text
+
+  // Individual sections (for display/editing)
+  weatherSummary String? @map("weather_summary")
+  eventsSummary  String? @map("events_summary")
+  tasksSummary   String? @map("tasks_summary")
+  newsSummary    String? @map("news_summary")
+  serversSummary String? @map("servers_summary")
+
+  // Generation metadata
+  generatedAt DateTime @map("generated_at")
+
+  // User relationship
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("daily_briefs")
+}
+
+enum HealthStatus {
+  UP
+  DOWN
+  DEGRADED
+}
+
+model HealthCheck {
+  id String @id @default(uuid())
+
+  // Service info
+  serviceName String  @map("service_name") // e.g., "API Dev Server", "Database"
+  url         String? // Optional endpoint URL
+
+  // Status
+  status       HealthStatus
+  responseTime Int?         @map("response_time") // In milliseconds
+  errorMessage String?      @map("error_message")
+
+  // Timestamps
+  checkedAt DateTime @map("checked_at")
+
+  // User relationship
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, serviceName, checkedAt])
+  @@map("health_checks")
+}

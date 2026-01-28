@@ -8,10 +8,22 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "fastify": "^4.26.1"
+    "@fastify/cookie": "^9.4.0",
+    "@fastify/cors": "^9.0.1",
+    "@fastify/oauth2": "^7.9.0",
+    "@fastify/session": "^10.9.0",
+    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/client": "^7.3.0",
+    "dotenv": "^16.6.1",
+    "fastify": "^4.26.1",
+    "fastify-plugin": "^5.1.0",
+    "google-auth-library": "^10.5.0",
+    "pg": "^8.17.2"
   },
   "devDependencies": {
     "@types/node": "^20.11.19",
+    "@types/pg": "^8.16.0",
+    "prisma": "^7.3.0",
     "tsx": "^4.7.1",
     "typescript": "^5.3.3"
   }
