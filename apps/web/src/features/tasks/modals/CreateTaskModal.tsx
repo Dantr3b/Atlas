@@ -9,18 +9,85 @@ interface CreateTaskModalProps {
 }
 
 export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }: CreateTaskModalProps) {
+  // Mode: 'natural' or 'form'
+  const [mode, setMode] = useState<'natural' | 'form'>('natural');
+  
+  // Natural language input
+  const [naturalInput, setNaturalInput] = useState('');
+  const [parsing, setParsing] = useState(false);
+  const [parsed, setParsed] = useState(false);
+  
+  // Form fields
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<'INBOX' | 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED'>('INBOX');
   const [type, setType] = useState<'QUICK' | 'DEEP_WORK' | 'COURSE' | 'ADMIN' | ''>('');
   const [context, setContext] = useState<'PERSONAL' | 'WORK' | 'LEARNING' | ''>('');
   const [priority, setPriority] = useState<number>(5);
-  const [estimatedDuration, setEstimatedDuration] = useState<5 | 10 | 15 | 30 | 60 | null>(null);
+  const [estimatedDuration, setEstimatedDuration] = useState<5 | 10 | 15 | 30 | 60 | 90 | 120 | 180 | 300 | null>(null);
   const [deadline, setDeadline] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   if (!isOpen) return null;
+
+  // Helper to round duration to nearest allowed value
+  const roundToAllowedDuration = (minutes: number | null): 5 | 10 | 15 | 30 | 60 | 90 | 120 | 180 | 300 | null => {
+    if (!minutes) return null;
+    
+    const allowedValues = [5, 10, 15, 30, 60, 90, 120, 180, 300];
+    const closest = allowedValues.reduce((prev, curr) => 
+      Math.abs(curr - minutes) < Math.abs(prev - minutes) ? curr : prev
+    );
+    
+    return closest as 5 | 10 | 15 | 30 | 60 | 90 | 120 | 180 | 300;
+  };
+
+  const handleParseNatural = async () => {
+    if (!naturalInput.trim()) {
+      setError('Veuillez saisir une description de tâche');
+      return;
+    }
+
+    try {
+      setParsing(true);
+      setError(null);
+
+      const result = await api.parseNaturalLanguage(naturalInput);
+
+      // Fill form fields with parsed data
+      setContent(result.content);
+      if (result.deadline) {
+        // Convert ISO to datetime-local format
+        const date = new Date(result.deadline);
+        const localDateTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 16);
+        setDeadline(localDateTime);
+      }
+      if (result.priority) setPriority(result.priority);
+      if (result.type) setType(result.type);
+      if (result.context) setContext(result.context);
+      if (result.estimatedDuration) {
+        // Round to nearest allowed duration
+        const rounded = roundToAllowedDuration(result.estimatedDuration);
+        setEstimatedDuration(rounded);
+      }
+
+      setParsed(true);
+      setMode('form');
+      setShowAdvanced(true);
+    } catch (err) {
+      // Check if it's a rate limit error
+      if (err instanceof Error && 'status' in err && (err as any).status === 429) {
+        setError('⏱️ Limite d\'utilisation atteinte. Réessayez dans 60 secondes.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Erreur lors de l\'analyse');
+      }
+    } finally {
+      setParsing(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,10 +149,79 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }: Crea
           </button>
         </div>
 
+        {/* Mode tabs */}
+        <div className="task-form__tabs">
+          <button
+            type="button"
+            className={`task-form__tab ${mode === 'natural' ? 'task-form__tab--active' : ''}`}
+            onClick={() => setMode('natural')}
+          >
+            ✨ Langage naturel
+          </button>
+          <button
+            type="button"
+            className={`task-form__tab ${mode === 'form' ? 'task-form__tab--active' : ''}`}
+            onClick={() => setMode('form')}
+          >
+            📝 Formulaire
+          </button>
+        </div>
+
+        {mode === 'natural' ? (
+          <div className="task-form">
+            {error && (
+              <div className="task-form__error">
+                {error}
+              </div>
+            )}
+
+            <div className="task-form__group">
+              <label htmlFor="natural-input" className="task-form__label">
+                Décrivez votre tâche en français
+              </label>
+              <textarea
+                id="natural-input"
+                value={naturalInput}
+                onChange={(e) => setNaturalInput(e.target.value)}
+                className="task-form__textarea"
+                placeholder="Ex: je dois finir le rapport avant vendredi soir"
+                rows={4}
+                maxLength={500}
+                autoFocus
+              />
+              <span className="task-form__hint">{naturalInput.length}/500</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleParseNatural}
+              className="task-form__parse-btn"
+              disabled={parsing || !naturalInput.trim()}
+            >
+              {parsing ? '🤖 Analyse en cours...' : '✨ Analyser avec l\'IA'}
+            </button>
+
+            <div className="task-form__actions">
+              <button
+                type="button"
+                onClick={onClose}
+                className="task-form__btn task-form__btn--cancel"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="task-form">
           {error && (
             <div className="task-form__error">
               {error}
+            </div>
+          )}
+
+          {parsed && (
+            <div className="task-form__success">
+              ✅ Tâche analysée avec succès ! Vérifiez et validez.
             </div>
           )}
 
@@ -189,7 +325,7 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }: Crea
               <select
                 id="duration"
                 value={estimatedDuration || ''}
-                onChange={(e) => setEstimatedDuration(e.target.value ? parseInt(e.target.value) as any : null)}
+                onChange={(e) => setEstimatedDuration(e.target.value ? parseInt(e.target.value) as 5 | 10 | 15 | 30 | 60 | 90 | 120 | 180 | 300 : null)}
                 className="task-form__select"
               >
                 <option value="">Aucune</option>
@@ -198,6 +334,10 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }: Crea
                 <option value="15">15 minutes</option>
                 <option value="30">30 minutes</option>
                 <option value="60">1 heure</option>
+                <option value="90">1h30</option>
+                <option value="120">2 heures</option>
+                <option value="180">3 heures</option>
+                <option value="300">Plus de 3h</option>
               </select>
             </div>
 
@@ -233,6 +373,7 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }: Crea
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

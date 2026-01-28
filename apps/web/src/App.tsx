@@ -4,6 +4,7 @@ import CreateTaskButton from './components/ui/CreateTaskButton';
 import CreateTaskModal from './features/tasks/modals/CreateTaskModal';
 import EditTaskModal from './features/tasks/modals/EditTaskModal';
 import LoginPage from './features/auth/LoginPage';
+import GeminiQuotaWidget from './components/ui/GeminiQuotaWidget';
 import { api, type Task } from './lib/api';
 import './App.css';
 
@@ -103,8 +104,12 @@ function App() {
           setIsEditModalOpen(false);
           setSelectedTask(null);
         }}
-        onTaskUpdated={handleTaskUpdated}
+        onUpdate={handleTaskUpdated}
+        onDelete={handleTaskUpdated}
       />
+
+      {/* Gemini API Quota Widget */}
+      <GeminiQuotaWidget />
     </div>
   );
 }
