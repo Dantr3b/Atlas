@@ -78,6 +78,21 @@ export const api = {
     });
   },
 
+  async parseNaturalLanguage(text: string): Promise<{
+    content: string;
+    deadline: string | null;
+    priority: number | null;
+    type: 'QUICK' | 'DEEP_WORK' | 'COURSE' | 'ADMIN' | null;
+    context: 'PERSONAL' | 'WORK' | 'LEARNING' | null;
+    estimatedDuration: number | null;
+    confidence: number;
+  }> {
+    return fetchAPI('/tasks/parse-natural', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+
   // Auth
   async getMe(): Promise<{ user: { id: string; email: string; name: string | null } }> {
     return fetchAPI('/auth/me');

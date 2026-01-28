@@ -4,6 +4,8 @@ import cors from '@fastify/cors';
 import authPlugin from './plugins/auth.js';
 import authRoutes from './routes/auth.js';
 import taskRoutes from './routes/tasks.js';
+import parseNaturalRoutes from './routes/parse-natural.js';
+import geminiStatsRoutes from './routes/gemini-stats.js';
 
 const fastify = Fastify({
   logger: true,
@@ -26,6 +28,12 @@ const start = async () => {
 
     // Register task routes
     await fastify.register(taskRoutes, { prefix: '/tasks' });
+
+    // Register natural language parsing route
+    await fastify.register(parseNaturalRoutes, { prefix: '/tasks/parse-natural' });
+
+    // Register Gemini stats route
+    await fastify.register(geminiStatsRoutes, { prefix: '/gemini-stats' });
 
     // Health check
     fastify.get('/health', async () => {
