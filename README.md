@@ -72,10 +72,17 @@ Le système doit :
   - **Validation** : **Strictly Typed** via `Zod` (Fail Fast au démarrage).
 - **Commits** : **Conventional Commits** (`type(scope): description`).
   - Types : `feat`, `fix`, `chore`, `refactor`, `docs`, `style`.
+- **AI** :
+  - **Google Gemini API** : Analyse de langage naturel pour création de tâches.
+  - **Rate Limiting** : Protection contre dépassement des quotas (15 req/min, 1500 req/jour).
+  - **Service centralisé** : `gemini-rate-limiter.ts` réutilisable pour toutes les features IA.
 
 ### Frontend
 
-- **Web** : React
+- **Web** : React 19
+- **UI/UX** : Dark theme, gradients, micro-animations
+- **Architecture** : Structure par features (`features/auth`, `features/tasks`)
+- **Drag-and-drop** : `@dnd-kit` pour réorganisation des tâches
 - **Mobile** : React Native (prévu post-MVP)
 
 ### Services Tiers
@@ -95,7 +102,12 @@ Le système doit :
 
 - **Types** : Rapide, Deep Work, Cours, Admin.
 - **Statuts** : Inbox, Planifiée, En cours, Terminée.
-- **Estimation** : Optionnelle.
+- **Estimation** : 5min, 10min, 15min, 30min, 1h, 1h30, 2h, 3h, Plus de 3h.
+- **Création rapide** :
+  - Mode formulaire classique avec options avancées collapsibles
+  - **Mode IA** ✨ : Saisie en langage naturel ("je dois finir le rapport avant vendredi soir") → analyse automatique avec Gemini → pré-remplissage du formulaire
+- **Drag & Drop** : Réorganisation par glisser-déposer avec recalcul automatique des priorités
+- **Édition/Suppression** : Click sur une tâche pour éditer ou supprimer
 
 ### 🧠 Priorisation Automatique
 
@@ -121,9 +133,89 @@ Suivi périodique de l'état des environnements de dev (Latence, Up/Down) intég
 
 ---
 
-## 6. Défintion du Succès (KPIs)
+## 6. Définition du Succès (KPIs)
 
 - Savoir quoi faire en **< 30 secondes**.
 - Ajouter une tâche en **< 5 secondes**.
 - Brief du matin pertinent **sans écran**.
 - Réduction drastique de l'usage direct de Google Calendar.
+
+---
+
+## 7. Configuration
+
+### Variables d'environnement requises
+
+#### Backend (`apps/api/.env`)
+
+```bash
+# Database
+DATABASE_URL="postgresql://atlas:password@localhost:5432/atlas?schema=public"
+
+# Google OAuth
+GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="your-client-secret"
+GOOGLE_REDIRECT_URI="http://localhost:3000/auth/google/callback"
+
+# Auth
+ALLOWED_EMAIL="your-email@gmail.com"
+SESSION_SECRET="your-session-secret-minimum-32-characters"
+
+# Frontend
+FRONTEND_URL="http://localhost:5173"
+
+# AI (Gemini)
+GEMINI_API_KEY="your-gemini-api-key"
+```
+
+#### Frontend (`apps/web/.env`)
+
+```bash
+VITE_API_URL="http://localhost:3000"
+```
+
+### Obtenir une clé API Gemini
+
+1. Aller sur [Google AI Studio](https://aistudio.google.com/apikey)
+2. Créer une nouvelle clé API (gratuit : 15 req/min, 1500 req/jour)
+3. Copier la clé dans `GEMINI_API_KEY` dans `apps/api/.env`
+
+---
+
+## 8. Installation & Démarrage
+
+### Prérequis
+
+- Node.js 20+
+- PostgreSQL 14+
+- npm ou pnpm
+
+### Installation
+
+```bash
+# Installer les dépendances
+npm install
+
+# Setup de la base de données
+cd apps/api
+npx prisma migrate dev
+npx prisma db seed  # Optionnel
+```
+
+### Démarrage
+
+```bash
+# Terminal 1 : API
+cd apps/api
+npm run dev
+
+# Terminal 2 : Frontend
+cd apps/web
+npm run dev
+```
+
+### URLs
+
+- **Frontend** : http://localhost:5173
+- **API** : http://localhost:3000
+- **Health Check** : http://localhost:3000/health
