@@ -1,7 +1,9 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import authPlugin from './plugins/auth.js';
 import authRoutes from './routes/auth.js';
+import taskRoutes from './routes/tasks.js';
 
 const fastify = Fastify({
   logger: true,
@@ -16,8 +18,14 @@ const start = async () => {
       credentials: true,
     });
 
+    // Register auth plugin (cookie + session)
+    await fastify.register(authPlugin);
+
     // Register auth routes (includes OAuth plugin)
     await fastify.register(authRoutes, { prefix: '/auth' });
+
+    // Register task routes
+    await fastify.register(taskRoutes, { prefix: '/tasks' });
 
     // Health check
     fastify.get('/health', async () => {
