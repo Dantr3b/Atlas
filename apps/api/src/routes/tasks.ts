@@ -47,11 +47,11 @@ export default async function taskRoutes(fastify: FastifyInstance) {
       data: {
         content,
         status: status || 'INBOX',
-        type: type || null,
-        context: context || null,
+        ...(type && { type }),
+        ...(context && { context }),
         deadline: deadline ? new Date(deadline) : null,
         estimatedDuration: estimatedDuration || null,
-        priority: priority || null,
+        ...(priority !== undefined && { priority }),
         userId,
       },
     });
