@@ -28,7 +28,7 @@ const updateTaskSchema = {
       type: { type: 'string', enum: ['QUICK', 'DEEP_WORK', 'COURSE', 'ADMIN'] },
       context: { type: 'string', enum: ['PERSONAL', 'WORK', 'LEARNING'] },
       deadline: { type: 'string', format: 'date-time' },
-      estimatedDuration: { type: 'integer', enum: [5, 10, 15, 30, 60], nullable: true }, // 5m, 10m, 15m, 30m, 1h, or null for custom
+      estimatedDuration: { type: 'integer', enum: [5, 10, 15, 30, 60, 90, 120, 180, 300], nullable: true },
       priority: { type: 'integer', minimum: 1, maximum: 10 },
     },
   },
