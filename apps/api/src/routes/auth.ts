@@ -86,16 +86,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-      },
+      select: { id: true, email: true, name: true },
     });
 
     if (!user) {
-      request.session.delete();
       return reply.status(401).send({ error: 'User not found' });
     }
 
@@ -104,7 +98,11 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // POST /logout
   fastify.post('/logout', async (request, reply) => {
-    request.session.delete();
+    try {
+      await request.session.destroy();
+    } catch (error) {
+      // Session might not exist, that's ok
+    }
     return reply.send({ success: true });
   });
 }
