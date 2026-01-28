@@ -1,0 +1,15 @@
+{
+  "name": "atlas",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Système d'organisation personnel automatisé",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Gabin Rolland",
+  "license": "ISC"
+}
