@@ -1,0 +1,41 @@
+.create-task-btn {
+  position: fixed;
+  top: var(--space-6);
+  right: var(--space-6);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: all var(--transition-base);
+  animation: fadeIn var(--transition-slow) ease-out;
+}
+
+.create-task-btn:hover {
+  transform: scale(1.1) rotate(90deg);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+}
+
+.create-task-btn:active {
+  transform: scale(1.05) rotate(90deg);
+}
+
+.create-task-btn__icon {
+  width: 28px;
+  height: 28px;
+  color: var(--color-bg);
+  transition: transform var(--transition-base);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .create-task-btn {
+    bottom: var(--space-6);
+    top: auto;
+    right: var(--space-4);
+  }
+}
