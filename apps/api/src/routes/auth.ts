@@ -8,7 +8,11 @@ export default async function authRoutes(fastify: FastifyInstance) {
   // Register OAuth2
   await fastify.register(fastifyOAuth2, {
     name: 'googleOAuth2',
-    scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar.readonly'],
+    scope: [
+      'profile',
+      'email',
+      'https://www.googleapis.com/auth/calendar', // Full calendar access
+    ],
     credentials: {
       client: {
         id: process.env.GOOGLE_CLIENT_ID!,

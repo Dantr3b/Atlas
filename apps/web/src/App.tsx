@@ -5,6 +5,7 @@ import CreateTaskModal from './features/tasks/modals/CreateTaskModal';
 import EditTaskModal from './features/tasks/modals/EditTaskModal';
 import LoginPage from './features/auth/LoginPage';
 import GeminiQuotaWidget from './components/ui/GeminiQuotaWidget';
+import SettingsModal from './features/settings/SettingsModal';
 import { api, type Task } from './lib/api';
 import './App.css';
 
@@ -12,6 +13,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -76,9 +78,14 @@ function App() {
               <h1 className="app-title">Atlas</h1>
               <p className="app-subtitle">Système d'organisation personnel</p>
             </div>
-            <button onClick={handleLogout} className="app-logout-btn">
-              Déconnexion
-            </button>
+            <div className="app-header-actions">
+              <button onClick={() => setIsSettingsOpen(true)} className="app-settings-btn">
+                ⚙️ Paramètres
+              </button>
+              <button onClick={handleLogout} className="app-logout-btn">
+                Déconnexion
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -110,6 +117,9 @@ function App() {
 
       {/* Gemini API Quota Widget */}
       <GeminiQuotaWidget />
+
+      {/* Settings Modal */}
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

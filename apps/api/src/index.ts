@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.js';
 import taskRoutes from './routes/tasks.js';
 import parseNaturalRoutes from './routes/parse-natural.js';
 import geminiStatsRoutes from './routes/gemini-stats.js';
+import calendarRoutes from './routes/calendars.js';
+import { startCalendarSync } from './cron/sync-calendars.js';
 
 const fastify = Fastify({
   logger: true,
@@ -35,6 +37,9 @@ const start = async () => {
     // Register Gemini stats route
     await fastify.register(geminiStatsRoutes, { prefix: '/gemini-stats' });
 
+    // Register calendar routes
+    await fastify.register(calendarRoutes, { prefix: '/calendars' });
+
     // Health check
     fastify.get('/health', async () => {
       return { status: 'ok', timestamp: new Date().toISOString() };
@@ -42,6 +47,9 @@ const start = async () => {
 
     await fastify.listen({ port: 3000, host: '0.0.0.0' });
     console.log('🚀 Server running at http://localhost:3000');
+    
+    // Start cron jobs
+    startCalendarSync();
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

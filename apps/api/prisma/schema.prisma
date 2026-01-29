@@ -44,11 +44,40 @@ model User {
 
   // Relations
   tasks          Task[]
+  calendars      UserCalendar[]
   calendarEvents CalendarEvent[]
   dailyBriefs    DailyBrief[]
   healthChecks   HealthCheck[]
 
   @@map("users")
+}
+
+model UserCalendar {
+  id Int @id @default(autoincrement())
+
+  // Calendar identification
+  calendarId String  @map("calendar_id") // Google calendar ID (e.g., "primary", "email@group.calendar.google.com")
+  label      String // Display name (e.g., "Travail", "Cours")
+  color      String  @default("#4285F4")
+  enabled    Boolean @default(true)
+
+  // All-day event handling
+  treatAllDayAsSchedule Boolean @default(false) @map("treat_all_day_as_schedule")
+  defaultStartTime      String? @default("09:00") @map("default_start_time") // Format: HH:MM
+  defaultEndTime        String? @default("17:00") @map("default_end_time") // Format: HH:MM
+
+  // Per-day schedule (JSON: { "monday": { "start": "09:00", "end": "17:00" }, ... })
+  schedulePerDay Json? @map("schedule_per_day")
+
+  // User relationship
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, calendarId])
+  @@map("user_calendars")
 }
 
 model Task {
