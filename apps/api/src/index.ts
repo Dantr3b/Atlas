@@ -7,6 +7,8 @@ import taskRoutes from './routes/tasks.js';
 import parseNaturalRoutes from './routes/parse-natural.js';
 import geminiStatsRoutes from './routes/gemini-stats.js';
 import calendarRoutes from './routes/calendars.js';
+import reorderTasksRoutes from './routes/reorder-tasks.js';
+import assignTasksRoutes from './routes/assign-tasks.js';
 import { startCalendarSync } from './cron/sync-calendars.js';
 
 const fastify = Fastify({
@@ -33,6 +35,12 @@ const start = async () => {
 
     // Register natural language parsing route
     await fastify.register(parseNaturalRoutes, { prefix: '/tasks/parse-natural' });
+
+    // Register task reordering route
+    await fastify.register(reorderTasksRoutes, { prefix: '/tasks/reorder' });
+
+    // Register task assignment route
+    await fastify.register(assignTasksRoutes, { prefix: '/tasks/assign-daily' });
 
     // Register Gemini stats route
     await fastify.register(geminiStatsRoutes, { prefix: '/gemini-stats' });

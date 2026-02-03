@@ -29,7 +29,7 @@ export default function EditTaskModal({ isOpen, task, onClose, onTaskUpdated }: 
       setType(task.type || '');
       setContext(task.context || '');
       setPriority(task.priority || 5);
-      setEstimatedDuration(task.estimatedDuration as any || null);
+      setEstimatedDuration((task.estimatedDuration as 5 | 10 | 15 | 30 | 60 | null) || null);
       
       // Convert ISO date to datetime-local format
       if (task.deadline) {
@@ -144,7 +144,7 @@ export default function EditTaskModal({ isOpen, task, onClose, onTaskUpdated }: 
               <select
                 id="status"
                 value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
+                onChange={(e) => setStatus(e.target.value as 'INBOX' | 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED')}
                 className="task-form__select"
               >
                 <option value="INBOX">Inbox</option>
@@ -176,7 +176,7 @@ export default function EditTaskModal({ isOpen, task, onClose, onTaskUpdated }: 
               <select
                 id="type"
                 value={type}
-                onChange={(e) => setType(e.target.value as any)}
+                onChange={(e) => setType(e.target.value as 'QUICK' | 'DEEP_WORK' | 'COURSE' | 'ADMIN' | '')}
                 className="task-form__select"
               >
                 <option value="">Aucun</option>
@@ -192,7 +192,7 @@ export default function EditTaskModal({ isOpen, task, onClose, onTaskUpdated }: 
               <select
                 id="context"
                 value={context}
-                onChange={(e) => setContext(e.target.value as any)}
+                onChange={(e) => setContext(e.target.value as 'PERSONAL' | 'WORK' | 'LEARNING' | '')}
                 className="task-form__select"
               >
                 <option value="">Aucun</option>
@@ -209,7 +209,7 @@ export default function EditTaskModal({ isOpen, task, onClose, onTaskUpdated }: 
               <select
                 id="duration"
                 value={estimatedDuration || ''}
-                onChange={(e) => setEstimatedDuration(e.target.value ? parseInt(e.target.value) as any : null)}
+                onChange={(e) => setEstimatedDuration(e.target.value ? parseInt(e.target.value) as 5 | 10 | 15 | 30 | 60 : null)}
                 className="task-form__select"
               >
                 <option value="">Aucune</option>

@@ -1,25 +1,25 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import './LoginPage.css';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(true);
 
-  const checkAuthStatus = useCallback(async () => {
-    try {
-      await api.getMe();
-      // If successful, reload to show tasks
-      window.location.reload();
-    } catch {
-      // Not authenticated, show login
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     // Check if we just came back from OAuth
+    async function checkAuthStatus() {
+      try {
+        await api.getMe();
+        // If successful, reload to show tasks
+        window.location.reload();
+      } catch {
+        // Not authenticated, show login
+        setLoading(false);
+      }
+    }
+
     checkAuthStatus();
-  }, [checkAuthStatus]);
+  }, []);
 
   function handleLogin() {
     // Redirect to API OAuth endpoint

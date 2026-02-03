@@ -35,7 +35,7 @@ export class FreeTimeDetector {
     }
 
     const date = new Date(event.start);
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'lowercase' });
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
 
     // Find schedule for this day (custom or default)
     const schedule = config.schedulePerDay?.[dayName] || {

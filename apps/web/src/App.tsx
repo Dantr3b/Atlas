@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import TaskList from './features/tasks/components/TaskList';
 import CreateTaskButton from './components/ui/CreateTaskButton';
 import CreateTaskModal from './features/tasks/modals/CreateTaskModal';
@@ -17,18 +17,18 @@ function App() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const checkAuth = useCallback(async () => {
-    try {
-      await api.getMe();
-      setIsAuthenticated(true);
-    } catch {
-      setIsAuthenticated(false);
-    }
-  }, []);
-
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        await api.getMe();
+        setIsAuthenticated(true);
+      } catch {
+        setIsAuthenticated(false);
+      }
+    };
+    
     checkAuth();
-  }, [checkAuth]);
+  }, []);
 
   // Loading state
   if (isAuthenticated === null) {
@@ -111,8 +111,7 @@ function App() {
           setIsEditModalOpen(false);
           setSelectedTask(null);
         }}
-        onUpdate={handleTaskUpdated}
-        onDelete={handleTaskUpdated}
+        onTaskUpdated={handleTaskUpdated}
       />
 
       {/* Gemini API Quota Widget */}

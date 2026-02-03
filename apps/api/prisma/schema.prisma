@@ -93,6 +93,10 @@ model Task {
   estimatedDuration Int? // In minutes
   priority          Int       @default(0) // Manual priority (higher = more important)
 
+  // Assignment tracking
+  assignedDate DateTime? @map("assigned_date") @db.Date // Which day this task is assigned to
+  assignedAt   DateTime? @map("assigned_at") // When it was assigned
+
   // User relationship
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

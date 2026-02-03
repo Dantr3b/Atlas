@@ -91,6 +91,10 @@ Le système doit :
   - **Google OAuth** : Accès simplifié + Scope Calendar.
   - **Whitelist** : Rejet de tout email non autorisé (défini dans `.env`).
   - **Session** : Cookie HttpOnly longue durée.
+- **Google Calendar API** :
+  - Synchronisation multi-calendriers
+  - Scope : `https://www.googleapis.com/auth/calendar`
+  - Détection automatique du temps libre
 - **News** : Flux RSS.
 - **Météo** : API externe (avec cache).
 
@@ -108,6 +112,23 @@ Le système doit :
   - **Mode IA** ✨ : Saisie en langage naturel ("je dois finir le rapport avant vendredi soir") → analyse automatique avec Gemini → pré-remplissage du formulaire
 - **Drag & Drop** : Réorganisation par glisser-déposer avec recalcul automatique des priorités
 - **Édition/Suppression** : Click sur une tâche pour éditer ou supprimer
+
+### 📅 Synchronisation Google Calendar
+
+- **Multi-calendriers** : Synchronisation de plusieurs calendriers Google (cours, travail, personnel)
+- **Événements "toute la journée"** : Configuration intelligente des horaires de travail
+  - Horaires par défaut (ex: 09:00-17:00)
+  - Horaires personnalisés par jour de la semaine
+- **Visualisation** : Vue calendrier hebdomadaire de vos événements
+- **Synchronisation auto** : Cron job toutes les 15 minutes
+- **Détection de temps libre** : Analyse des créneaux disponibles pour suggérer des tâches
+
+**Configuration** :
+
+1. Cliquez sur "⚙️ Paramètres" → "⚙️ Configuration"
+2. Sélectionnez vos calendriers Google
+3. Configurez les horaires pour événements "toute la journée" si besoin
+4. Consultez "📆 Ma semaine" pour visualiser vos événements
 
 ### 🧠 Priorisation Automatique
 

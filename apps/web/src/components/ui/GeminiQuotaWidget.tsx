@@ -30,7 +30,7 @@ export default function GeminiQuotaWidget() {
           setStats(data);
           setError(false);
         }
-      } catch (err) {
+      } catch {
         setError(true);
       }
     };

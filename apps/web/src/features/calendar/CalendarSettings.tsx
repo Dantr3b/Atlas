@@ -35,7 +35,7 @@ export default function CalendarSettings() {
       setAvailableCalendars(available);
       setUserCalendars(configured);
     } catch (err) {
-      setError('Erreur lors du chargement des calendriers');
+      setError(`Erreur lors du chargement des calendriers: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
     } finally {
       setLoading(false);
     }
@@ -86,7 +86,7 @@ export default function CalendarSettings() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      setError('Erreur lors de la sauvegarde');
+      setError(`Erreur lors de la sauvegarde: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
     } finally {
       setSaving(false);
     }

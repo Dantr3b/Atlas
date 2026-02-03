@@ -51,12 +51,54 @@ export default function CalendarView() {
         dayMap.set(dateString, []);
       }
 
+      // Helper function to get date string in local timezone (YYYY-MM-DD)
+      const getLocalDateString = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
       events.forEach((event: CalendarEvent) => {
-        const startDate = new Date(event.start.dateTime || event.start.date || '');
-        const dateString = startDate.toISOString().split('T')[0];
+        // Parse dates carefully to avoid timezone issues
+        const isAllDay = !event.start.dateTime;
         
-        if (dayMap.has(dateString)) {
-          dayMap.get(dateString)!.push(event);
+        let startDate: Date;
+        let endDate: Date;
+        
+        if (isAllDay) {
+          // For all-day events, parse the date string manually to avoid UTC conversion
+          // Format: "2026-02-04" -> create date in local timezone
+          const startParts = (event.start.date || '').split('-').map(Number);
+          startDate = new Date(startParts[0], startParts[1] - 1, startParts[2]);
+          
+          const endParts = (event.end.date || '').split('-').map(Number);
+          endDate = new Date(endParts[0], endParts[1] - 1, endParts[2]);
+          
+          // Google Calendar sets end date to the day AFTER the last day for all-day events
+          endDate.setDate(endDate.getDate() - 1);
+        } else {
+          // For timed events, use normal Date parsing
+          startDate = new Date(event.start.dateTime || '');
+          endDate = new Date(event.end.dateTime || '');
+        }
+        
+        // Add event to every day it spans
+        const currentDate = new Date(startDate);
+        currentDate.setHours(0, 0, 0, 0);
+        
+        const endDateNormalized = new Date(endDate);
+        endDateNormalized.setHours(0, 0, 0, 0);
+        
+        while (currentDate <= endDateNormalized) {
+          // Use local timezone formatting instead of UTC
+          const dateString = getLocalDateString(currentDate);
+          
+          if (dayMap.has(dateString)) {
+            dayMap.get(dateString)!.push(event);
+          }
+          
+          currentDate.setDate(currentDate.getDate() + 1);
         }
       });
 

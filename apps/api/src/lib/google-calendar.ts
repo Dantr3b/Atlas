@@ -51,7 +51,17 @@ export class GoogleCalendarService {
   async listCalendars(): Promise<CalendarListItem[]> {
     try {
       const response = await this.calendar.calendarList.list();
-      return response.data.items || [];
+      const items = response.data.items || [];
+      
+      // Filter out items without required fields and map to CalendarListItem
+      return items
+        .filter((item) => item.id && item.summary)
+        .map((item) => ({
+          id: item.id!,
+          summary: item.summary!,
+          backgroundColor: item.backgroundColor || undefined,
+          accessRole: item.accessRole || undefined,
+        }));
     } catch (error) {
       console.error('Error fetching calendar list:', error);
       throw new Error('Failed to fetch calendar list');
@@ -76,7 +86,28 @@ export class GoogleCalendarService {
         maxResults: 250,
       });
 
-      return response.data.items || [];
+      // Filter out items without required fields and map to CalendarEventItem
+      return (response.data.items || [])
+        .filter((item) => item.id && item.summary && (item.start?.dateTime || item.start?.date))
+        .map((item) => ({
+          id: item.id!,
+          summary: item.summary!,
+          description: item.description || undefined,
+          location: item.location || undefined,
+          start: {
+            dateTime: item.start?.dateTime || undefined,
+            date: item.start?.date || undefined,
+            timeZone: item.start?.timeZone || undefined,
+          },
+          end: {
+            dateTime: item.end?.dateTime || undefined,
+            date: item.end?.date || undefined,
+            timeZone: item.end?.timeZone || undefined,
+          },
+          organizer: item.organizer?.email
+            ? { email: item.organizer.email }
+            : undefined,
+        }));
     } catch (error) {
       console.error(`Error fetching events for calendar ${calendarId}:`, error);
       throw new Error(`Failed to fetch events from calendar ${calendarId}`);

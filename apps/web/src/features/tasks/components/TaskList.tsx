@@ -26,6 +26,8 @@ export default function TaskList({ onTaskClick }: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [assigning, setAssigning] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -99,7 +101,51 @@ export default function TaskList({ onTaskClick }: TaskListProps) {
     } catch (err) {
       // Rollback on error
       setTasks(tasks);
-      setError('Failed to update task order');
+      setError(err instanceof Error ? err.message : 'Failed to update task order');
+    }
+  }
+
+  async function handleAIReorder() {
+    try {
+      setReordering(true);
+      setError(null);
+      
+      const result = await api.reorderTasks();
+      
+      // Reload tasks to show new order
+      await loadTasks();
+      
+      // Show success message briefly
+      setError(`✅ ${result.message}`);
+      setTimeout(() => setError(null), 3000);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('Rate limit')) {
+        setError('⏱️ Limite de taux atteinte. Réessayez dans 1 minute.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Échec de la réorganisation');
+      }
+    } finally {
+      setReordering(false);
+    }
+  }
+
+  async function handleAssignDaily() {
+    try {
+      setAssigning(true);
+      setError(null);
+      
+      const result = await api.assignDailyTasks();
+      
+      // Reload tasks to show assigned ones
+      await loadTasks();
+      
+      // Show success message briefly
+      setError(`✅ ${result.message}`);
+      setTimeout(() => setError(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Échec de l\'assignation');
+    } finally {
+      setAssigning(false);
     }
   }
 
@@ -148,9 +194,27 @@ export default function TaskList({ onTaskClick }: TaskListProps) {
       <div className="task-list-container">
         <div className="task-list-header">
           <h2>Your Tasks</h2>
-          <p className="task-list-count">
-            {tasks.length} task{tasks.length !== 1 ? 's' : ''}
-          </p>
+          <div className="task-list-actions">
+            <p className="task-list-count">
+              {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+            </p>
+            <button 
+              onClick={handleAIReorder} 
+              className="task-list-ai-btn"
+              disabled={reordering || tasks.length === 0}
+              title="Réorganiser les tâches avec l'IA"
+            >
+              {reordering ? '⏳ Réorganisation...' : '🤖 Réorganiser avec IA'}
+            </button>
+            <button 
+              onClick={handleAssignDaily} 
+              className="task-list-assign-btn"
+              disabled={assigning || tasks.length === 0}
+              title="Assigner les tâches pour aujourd'hui selon le calendrier"
+            >
+              {assigning ? '⏳ Assignation...' : '📅 Assigner les tâches du jour'}
+            </button>
+          </div>
         </div>
         
         <SortableContext

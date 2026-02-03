@@ -24,7 +24,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     callbackUri: 'http://localhost:3000/auth/google/callback',
   });
 
-  const googleOAuth2 = fastify.googleOAuth2 as OAuth2Namespace;
+  const googleOAuth2 = fastify.googleOAuth2;
 
   // GET /google/callback
   fastify.get('/google/callback', async (request, reply) => {

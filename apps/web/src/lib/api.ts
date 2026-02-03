@@ -24,8 +24,11 @@ interface CreateTaskData {
 }
 
 class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  status: number;
+  
+  constructor(status: number, message: string) {
     super(message);
+    this.status = status;
     this.name = 'ApiError';
   }
 }
@@ -90,6 +93,20 @@ export const api = {
     return fetchAPI('/tasks/parse-natural', {
       method: 'POST',
       body: JSON.stringify({ text }),
+    });
+  },
+
+  async reorderTasks(): Promise<{ success: boolean; updated: number; message: string }> {
+    return fetchAPI('/tasks/reorder', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
+
+  async assignDailyTasks(): Promise<{ success: boolean; assigned: number; message: string }> {
+    return fetchAPI('/tasks/assign-daily', {
+      method: 'POST',
+      body: JSON.stringify({}),
     });
   },
 

@@ -79,7 +79,11 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }: Crea
       setShowAdvanced(true);
     } catch (err) {
       // Check if it's a rate limit error
-      if (err instanceof Error && 'status' in err && (err as any).status === 429) {
+      const isErrorWithStatus = (error: unknown): error is Error & { status: number } => {
+        return error instanceof Error && 'status' in error && typeof (error as Error & { status?: number }).status === 'number';
+      };
+      
+      if (isErrorWithStatus(err) && err.status === 429) {
         setError('⏱️ Limite d\'utilisation atteinte. Réessayez dans 60 secondes.');
       } else {
         setError(err instanceof Error ? err.message : 'Erreur lors de l\'analyse');
@@ -260,7 +264,7 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }: Crea
               <select
                 id="status"
                 value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
+                onChange={(e) => setStatus(e.target.value as 'INBOX' | 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED')}
                 className="task-form__select"
               >
                 <option value="INBOX">Inbox</option>
@@ -292,7 +296,7 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }: Crea
               <select
                 id="type"
                 value={type}
-                onChange={(e) => setType(e.target.value as any)}
+                onChange={(e) => setType(e.target.value as 'QUICK' | 'DEEP_WORK' | 'COURSE' | 'ADMIN' | '')}
                 className="task-form__select"
               >
                 <option value="">Aucun</option>
@@ -308,7 +312,7 @@ export default function CreateTaskModal({ isOpen, onClose, onTaskCreated }: Crea
               <select
                 id="context"
                 value={context}
-                onChange={(e) => setContext(e.target.value as any)}
+                onChange={(e) => setContext(e.target.value as 'PERSONAL' | 'WORK' | 'LEARNING' | '')}
                 className="task-form__select"
               >
                 <option value="">Aucun</option>
