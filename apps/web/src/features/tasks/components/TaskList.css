@@ -76,6 +76,24 @@
   transform: none;
 }
 
+.task-list-quick-btn {
+  padding: var(--space-2) var(--space-4);
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+}
+
+.task-list-quick-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
+}
+
 .task-list {
   display: flex;
   flex-direction: column;

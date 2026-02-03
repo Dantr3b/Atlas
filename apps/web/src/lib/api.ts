@@ -110,6 +110,18 @@ export const api = {
     });
   },
 
+  async suggestTasks(availableMinutes: number): Promise<{
+    suggestions: Array<any>;
+    totalDuration: number;
+    tasksCount: number;
+    message: string;
+  }> {
+    return fetchAPI('/tasks/suggest', {
+      method: 'POST',
+      body: JSON.stringify({ availableMinutes }),
+    });
+  },
+
   // Auth
   async getMe(): Promise<{ user: { id: string; email: string; name: string | null } }> {
     return fetchAPI('/auth/me');

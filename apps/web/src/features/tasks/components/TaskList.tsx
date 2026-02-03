@@ -16,6 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { api, type Task } from '../../../lib/api';
 import TaskCard from './TaskCard';
+import QuickTaskPicker from './QuickTaskPicker';
 import './TaskList.css';
 
 interface TaskListProps {
@@ -28,6 +29,7 @@ export default function TaskList({ onTaskClick }: TaskListProps) {
   const [error, setError] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [showQuickPicker, setShowQuickPicker] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -214,6 +216,13 @@ export default function TaskList({ onTaskClick }: TaskListProps) {
             >
               {assigning ? '⏳ Assignation...' : '📅 Assigner les tâches du jour'}
             </button>
+            <button 
+              onClick={() => setShowQuickPicker(true)} 
+              className="task-list-quick-btn"
+              title="Trouver des tâches selon votre temps disponible"
+            >
+              ⏱️ J'ai du temps
+            </button>
           </div>
         </div>
         
@@ -228,6 +237,16 @@ export default function TaskList({ onTaskClick }: TaskListProps) {
           </div>
         </SortableContext>
       </div>
+
+      <QuickTaskPicker 
+        isOpen={showQuickPicker} 
+        onClose={() => setShowQuickPicker(false)}
+        onTaskSelect={(taskId) => {
+          // Here we could focus/highlight the task or start a timer
+          console.log('Selected task:', taskId);
+          setShowQuickPicker(false);
+        }} 
+      />
     </DndContext>
   );
 }

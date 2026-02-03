@@ -9,6 +9,7 @@ import geminiStatsRoutes from './routes/gemini-stats.js';
 import calendarRoutes from './routes/calendars.js';
 import reorderTasksRoutes from './routes/reorder-tasks.js';
 import assignTasksRoutes from './routes/assign-tasks.js';
+import suggestTasksRoutes from './routes/suggest-tasks.js';
 import { startCalendarSync } from './cron/sync-calendars.js';
 
 const fastify = Fastify({
@@ -41,6 +42,9 @@ const start = async () => {
 
     // Register task assignment route
     await fastify.register(assignTasksRoutes, { prefix: '/tasks/assign-daily' });
+
+    // Register task suggestion route
+    await fastify.register(suggestTasksRoutes, { prefix: '/tasks/suggest' });
 
     // Register Gemini stats route
     await fastify.register(geminiStatsRoutes, { prefix: '/gemini-stats' });
