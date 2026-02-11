@@ -1,6 +1,6 @@
 .create-task-btn {
   position: fixed;
-  top: var(--space-6);
+  bottom: var(--space-6);
   right: var(--space-6);
   width: 56px;
   height: 56px;
@@ -34,8 +34,7 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .create-task-btn {
-    bottom: var(--space-6);
-    top: auto;
+    bottom: var(--space-4);
     right: var(--space-4);
   }
 }

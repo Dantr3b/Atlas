@@ -10,6 +10,7 @@ import calendarRoutes from './routes/calendars.js';
 import reorderTasksRoutes from './routes/reorder-tasks.js';
 import assignTasksRoutes from './routes/assign-tasks.js';
 import suggestTasksRoutes from './routes/suggest-tasks.js';
+import { newsRoutes } from './routes/news.js';
 import { startCalendarSync } from './cron/sync-calendars.js';
 
 const fastify = Fastify({
@@ -48,6 +49,9 @@ const start = async () => {
 
     // Register Gemini stats route
     await fastify.register(geminiStatsRoutes, { prefix: '/gemini-stats' });
+
+    // Register news routes
+    await fastify.register(newsRoutes, { prefix: '/news' });
 
     // Register calendar routes
     await fastify.register(calendarRoutes, { prefix: '/calendars' });

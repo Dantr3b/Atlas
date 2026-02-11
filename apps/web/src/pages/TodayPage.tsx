@@ -1,0 +1,70 @@
+import { useEffect, useState } from 'react';
+import TaskList from '../features/tasks/components/TaskList';
+import { type Task } from '../lib/api';
+import EditTaskModal from '../features/tasks/modals/EditTaskModal';
+import SearchFilter, { type FilterState } from '../features/tasks/components/SearchFilter';
+import MorningBrief from '../features/news/MorningBrief';
+
+export default function TodayPage() {
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [filters, setFilters] = useState<FilterState>({
+    searchText: '',
+    typeFilters: [],
+    contextFilters: [],
+    statusFilters: [],
+  });
+
+  useEffect(() => {
+    const handleTaskCreated = () => {
+      setRefreshTrigger(prev => prev + 1);
+    };
+    
+    window.addEventListener('task-created', handleTaskCreated);
+    return () => window.removeEventListener('task-created', handleTaskCreated);
+  }, []);
+
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setIsEditModalOpen(true);
+  };
+
+  const today = new Date().toLocaleDateString('fr-FR', { 
+    weekday: 'long', 
+    day: 'numeric', 
+    month: 'long' 
+  });
+
+  return (
+    <div className="page today-page">
+      <div className="page-header">
+        <h2>Aujourd'hui</h2>
+        <p className="text-secondary capitalized">{today}</p>
+      </div>
+
+      <MorningBrief />
+      
+      <SearchFilter onFilterChange={setFilters} showStatusFilter={false} />
+      
+      <TaskList 
+        key={refreshTrigger} 
+        filter="today" 
+        onTaskClick={handleTaskClick}
+        searchText={filters.searchText}
+        typeFilters={filters.typeFilters}
+        contextFilters={filters.contextFilters}
+      />
+
+      <EditTaskModal
+        isOpen={isEditModalOpen}
+        task={selectedTask}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedTask(null);
+        }}
+        onTaskUpdated={() => setRefreshTrigger(prev => prev + 1)}
+      />
+    </div>
+  );
+}

@@ -7,7 +7,8 @@ interface Task {
   type?: 'QUICK' | 'DEEP_WORK' | 'COURSE' | 'ADMIN';
   context?: 'PERSONAL' | 'WORK' | 'LEARNING';
   deadline?: string;
-  estimatedDuration?: number;
+  assignedDate?: string;
+  assignedAt?: string;
   priority?: number;
   createdAt: string;
   updatedAt: string;
@@ -110,6 +111,26 @@ export const api = {
     });
   },
 
+export interface NewsArticle {
+  title: string;
+  description: string;
+  url: string;
+  urlToImage: string;
+  source: {
+    name: string;
+  };
+  publishedAt: string;
+}
+
+export interface BriefResponse {
+  politics: NewsArticle | null;
+  business: NewsArticle | null;
+  sports: NewsArticle | null;
+  cachedAt: string;
+}
+
+// ... existing code ...
+
   async suggestTasks(availableMinutes: number): Promise<{
     suggestions: Array<any>;
     totalDuration: number;
@@ -120,6 +141,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ availableMinutes }),
     });
+  },
+
+  // News
+  async getBrief(): Promise<BriefResponse> {
+    return fetchAPI('/news/brief');
   },
 
   // Auth

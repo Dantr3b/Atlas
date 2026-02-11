@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -21,9 +21,21 @@ import './TaskList.css';
 
 interface TaskListProps {
   onTaskClick?: (task: Task) => void;
+  filter?: 'all' | 'today' | 'week' | 'in_progress';
+  searchText?: string;
+  typeFilters?: Array<'QUICK' | 'DEEP_WORK' | 'COURSE' | 'ADMIN'>;
+  contextFilters?: Array<'PERSONAL' | 'WORK' | 'LEARNING'>;
+  statusFilters?: Array<'INBOX' | 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED'>;
 }
 
-export default function TaskList({ onTaskClick }: TaskListProps) {
+export default function TaskList({ 
+  onTaskClick, 
+  filter = 'all',
+  searchText = '',
+  typeFilters = [],
+  contextFilters = [],
+  statusFilters = []
+}: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,18 +50,93 @@ export default function TaskList({ onTaskClick }: TaskListProps) {
     })
   );
 
-  useEffect(() => {
-    loadTasks();
-  }, []);
+  // Stabilize filter dependencies to prevent infinite re-renders
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableTypeFilters = useMemo(() => typeFilters, [JSON.stringify(typeFilters)]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableContextFilters = useMemo(() => contextFilters, [JSON.stringify(contextFilters)]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableStatusFilters = useMemo(() => statusFilters, [JSON.stringify(statusFilters)]);
 
-  async function loadTasks() {
+  const loadTasks = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const { tasks: fetchedTasks } = await api.getTasks();
       
+      let filteredTasks = fetchedTasks;
+      const todayEndpoint = new Date();
+      todayEndpoint.setHours(23, 59, 59, 999);
+      
+      const weekEndpoint = new Date();
+      weekEndpoint.setDate(weekEndpoint.getDate() + 7);
+      weekEndpoint.setHours(23, 59, 59, 999);
+
+      if (filter === 'today') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        filteredTasks = fetchedTasks.filter(task => {
+          if (!task.assignedDate && !task.deadline) return false;
+          
+          if (task.assignedDate) {
+            return task.assignedDate.toString().split('T')[0] === todayStr;
+          }
+          
+          if (task.deadline) {
+            const deadline = new Date(task.deadline);
+            return deadline <= todayEndpoint;
+          }
+          
+          return false;
+        });
+      } else if (filter === 'week') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        filteredTasks = fetchedTasks.filter(task => {
+          if (task.assignedDate) {
+            const assigned = new Date(task.assignedDate);
+            return assigned >= today && assigned <= weekEndpoint;
+          }
+          
+          if (task.deadline) {
+            const deadline = new Date(task.deadline);
+            return deadline >= today && deadline <= weekEndpoint;
+          }
+          
+          return false;
+        });
+      } else if (filter === 'in_progress') {
+        filteredTasks = fetchedTasks.filter(task => task.status === 'IN_PROGRESS');
+      }
+
+      // Apply search and additional filters
+      if (searchText) {
+        const searchLower = searchText.toLowerCase();
+        filteredTasks = filteredTasks.filter(task =>
+          task.content.toLowerCase().includes(searchLower)
+        );
+      }
+
+      if (stableTypeFilters.length > 0) {
+        filteredTasks = filteredTasks.filter(task =>
+          task.type && stableTypeFilters.includes(task.type)
+        );
+      }
+
+      if (stableContextFilters.length > 0) {
+        filteredTasks = filteredTasks.filter(task =>
+          task.context && stableContextFilters.includes(task.context)
+        );
+      }
+
+      if (stableStatusFilters.length > 0) {
+        filteredTasks = filteredTasks.filter(task =>
+          stableStatusFilters.includes(task.status)
+        );
+      }
+
       // Sort by priority (highest first), then by creation date
-      const sortedTasks = fetchedTasks.sort((a, b) => {
+      const sortedTasks = filteredTasks.sort((a, b) => {
         const priorityA = a.priority || 0;
         const priorityB = b.priority || 0;
         if (priorityB !== priorityA) {
@@ -63,6 +150,28 @@ export default function TaskList({ onTaskClick }: TaskListProps) {
       setError(err instanceof Error ? err.message : 'Failed to load tasks');
     } finally {
       setLoading(false);
+    }
+  }, [filter, searchText, stableTypeFilters, stableContextFilters, stableStatusFilters]);
+
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
+
+  async function handleQuickTaskSelect(taskId: string) {
+    try {
+      // Update task status to IN_PROGRESS
+      await api.updateTask(taskId, { status: 'IN_PROGRESS' });
+      
+      // Reload tasks to reflect changes
+      await loadTasks();
+      
+      // Show success feedback
+      setError('✅ Tâche démarrée ! Bon courage !');
+      setTimeout(() => setError(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Impossible de démarrer la tâche');
+    } finally {
+      setShowQuickPicker(false);
     }
   }
 
@@ -241,11 +350,7 @@ export default function TaskList({ onTaskClick }: TaskListProps) {
       <QuickTaskPicker 
         isOpen={showQuickPicker} 
         onClose={() => setShowQuickPicker(false)}
-        onTaskSelect={(taskId) => {
-          // Here we could focus/highlight the task or start a timer
-          console.log('Selected task:', taskId);
-          setShowQuickPicker(false);
-        }} 
+        onTaskSelect={handleQuickTaskSelect} 
       />
     </DndContext>
   );

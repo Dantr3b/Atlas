@@ -1,21 +1,17 @@
 import { useEffect, useState } from 'react';
-import TaskList from './features/tasks/components/TaskList';
-import CreateTaskButton from './components/ui/CreateTaskButton';
-import CreateTaskModal from './features/tasks/modals/CreateTaskModal';
-import EditTaskModal from './features/tasks/modals/EditTaskModal';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import Layout from './components/Layout';
 import LoginPage from './features/auth/LoginPage';
-import GeminiQuotaWidget from './components/ui/GeminiQuotaWidget';
-import SettingsModal from './features/settings/SettingsModal';
-import { api, type Task } from './lib/api';
+import InboxPage from './pages/InboxPage';
+import TodayPage from './pages/TodayPage';
+import WeekPage from './pages/WeekPage';
+import InProgressPage from './pages/InProgressPage';
+import HomePage from './pages/HomePage';
+import { api } from './lib/api';
 import './App.css';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -29,6 +25,15 @@ function App() {
     
     checkAuth();
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   // Loading state
   if (isAuthenticated === null) {
@@ -47,79 +52,18 @@ function App() {
   }
 
   // Authenticated
-  const handleLogout = async () => {
-    try {
-      await api.logout();
-      setIsAuthenticated(false);
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
-
-  const handleTaskCreated = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
-
-  const handleTaskUpdated = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
-
-  const handleTaskClick = (task: Task) => {
-    setSelectedTask(task);
-    setIsEditModalOpen(true);
-  };
-
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="container">
-          <div className="app-header-content">
-            <div>
-              <h1 className="app-title">Atlas</h1>
-              <p className="app-subtitle">Système d'organisation personnel</p>
-            </div>
-            <div className="app-header-actions">
-              <button onClick={() => setIsSettingsOpen(true)} className="app-settings-btn">
-                ⚙️ Paramètres
-              </button>
-              <button onClick={handleLogout} className="app-logout-btn">
-                Déconnexion
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="app-main">
-        <div className="container">
-          <TaskList key={refreshTrigger} onTaskClick={handleTaskClick} />
-        </div>
-      </main>
-
-      <CreateTaskButton onClick={() => setIsCreateModalOpen(true)} />
-      
-      <CreateTaskModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onTaskCreated={handleTaskCreated}
-      />
-
-      <EditTaskModal
-        isOpen={isEditModalOpen}
-        task={selectedTask}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setSelectedTask(null);
-        }}
-        onTaskUpdated={handleTaskUpdated}
-      />
-
-      {/* Gemini API Quota Widget */}
-      <GeminiQuotaWidget />
-
-      {/* Settings Modal */}
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-    </div>
+    <Routes>
+      <Route element={<Layout onLogout={handleLogout} />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/today" element={<TodayPage />} />
+        <Route path="/week" element={<WeekPage />} />
+        <Route path="/in-progress" element={<InProgressPage />} />
+        {/* Redirect unknown routes to home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   );
 }
 
