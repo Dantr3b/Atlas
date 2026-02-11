@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, BriefResponse } from '../../lib/api';
+import { api, type BriefResponse } from '../../lib/api';
 import NewsCard from './NewsCard';
 import './MorningBrief.css';
 
@@ -12,6 +12,7 @@ export default function MorningBrief() {
     const fetchBrief = async () => {
       try {
         const data = await api.getBrief();
+        console.log('Brief data received:', data);
         setBrief(data);
       } catch (err) {
         console.error('Failed to fetch morning brief:', err);
@@ -46,7 +47,12 @@ export default function MorningBrief() {
   }
 
   // Check if we have at least one article
-  const hasContent = brief.politics || brief.business || brief.sports;
+  const hasContent = 
+    brief.news.france || 
+    brief.news.international || 
+    brief.business.france || 
+    brief.business.international || 
+    brief.sports;
 
   if (!hasContent) {
     return null;
@@ -58,24 +64,71 @@ export default function MorningBrief() {
         <h2 className="morning-brief__title">
           ☕ Brief du matin
         </h2>
-        {/* Date du jour */}
-        <span className="text-sm text-gray-400">
+        <span className="brief-date">
           {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
         </span>
       </div>
 
-      <div className="morning-brief__grid">
-        {brief.politics && (
-          <NewsCard article={brief.politics} category="politics" />
-        )}
-        
-        {brief.business && (
-          <NewsCard article={brief.business} category="business" />
-        )}
-        
-        {brief.sports && (
-          <NewsCard article={brief.sports} category="sports" />
-        )}
+      {brief.aiSummary && (
+        <div className="brief-summary">
+          <div className="brief-summary__header">
+            <span className="sparkle-icon">✨</span>
+            <span className="summary-label">Le point Gemini</span>
+          </div>
+          <p className="brief-summary__text">
+            {brief.aiSummary}
+          </p>
+        </div>
+      )}
+
+      <div className="brief-content">
+        <div className="brief-column">
+          <h3 className="column-title">🗞️ Actualités</h3>
+          <div className="cards-stack">
+            {brief.news.france && (
+              <NewsCard
+                article={brief.news.france}
+                category="France"
+              />
+            )}
+            {brief.news.international && (
+              <NewsCard
+                article={brief.news.international}
+                category="Monde"
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="brief-column">
+          <h3 className="column-title">💼 Économie</h3>
+          <div className="cards-stack">
+            {brief.business.france && (
+              <NewsCard
+                article={brief.business.france}
+                category="France"
+              />
+            )}
+            {brief.business.international && (
+              <NewsCard
+                article={brief.business.international}
+                category="Monde"
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="brief-column">
+          <h3 className="column-title">🏆 Sport</h3>
+          <div className="sport-card-wrapper">
+             {brief.sports && (
+              <NewsCard
+                article={brief.sports}
+                category="À la une"
+              />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,24 +1,33 @@
-import { FC } from 'react';
-import { NewsArticle } from '../../lib/api';
+import type { FC } from 'react';
+import type { NewsArticle } from '../../lib/api';
 import './MorningBrief.css';
 
 interface NewsCardProps {
   article: NewsArticle;
-  category: 'politics' | 'business' | 'sports';
+  category: string;
 }
 
 const NewsCard: FC<NewsCardProps> = ({ article, category }) => {
-  const categoryLabels = {
+  const categoryLabels: Record<string, string> = {
     politics: '🏛️ Politique',
     business: '💼 Économie',
     sports: '⚽ Sport',
+    France: '🇫🇷 France',
+    Monde: '🌍 Monde',
+    'À la une': '🏆 À la une',
   };
 
-  const categoryColors = {
+  const categoryColors: Record<string, string> = {
     politics: 'var(--color-primary)',
     business: 'var(--color-success)',
     sports: 'var(--color-warning)',
+    France: 'var(--color-info)',
+    Monde: 'var(--color-neutral)',
+    'À la une': 'var(--color-danger)',
   };
+
+  const label = categoryLabels[category] || category;
+  const color = categoryColors[category] || 'var(--color-primary)';
 
   return (
     <a 
@@ -26,17 +35,17 @@ const NewsCard: FC<NewsCardProps> = ({ article, category }) => {
       target="_blank" 
       rel="noopener noreferrer" 
       className={`news-card news-card--${category}`}
-      style={{ '--category-color': categoryColors[category] } as React.CSSProperties}
+      style={{ '--category-color': color } as React.CSSProperties}
     >
       <div className="news-card__image-container">
         {article.urlToImage ? (
           <img src={article.urlToImage} alt={article.title} className="news-card__image" loading="lazy" />
         ) : (
           <div className="news-card__placeholder">
-            <span>{categoryLabels[category].split(' ')[0]}</span>
+            <span>{label.split(' ')[0]}</span>
           </div>
         )}
-        <div className="news-card__category">{categoryLabels[category]}</div>
+        <div className="news-card__category">{label}</div>
       </div>
       
       <div className="news-card__content">

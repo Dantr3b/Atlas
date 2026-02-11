@@ -3,7 +3,6 @@ import TaskList from '../features/tasks/components/TaskList';
 import { type Task } from '../lib/api';
 import EditTaskModal from '../features/tasks/modals/EditTaskModal';
 import SearchFilter, { type FilterState } from '../features/tasks/components/SearchFilter';
-import MorningBrief from '../features/news/MorningBrief';
 
 export default function TodayPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -42,8 +41,6 @@ export default function TodayPage() {
         <h2>Aujourd'hui</h2>
         <p className="text-secondary capitalized">{today}</p>
       </div>
-
-      <MorningBrief />
       
       <SearchFilter onFilterChange={setFilters} showStatusFilter={false} />
       

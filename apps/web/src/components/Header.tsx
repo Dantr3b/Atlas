@@ -20,6 +20,9 @@ export default function Header({ onSettingsClick, onLogoutClick }: HeaderProps) 
             <NavLink to="/inbox" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               Inbox
             </NavLink>
+            <NavLink to="/brief" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              Brief
+            </NavLink>
             <NavLink to="/today" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               Aujourd'hui
             </NavLink>

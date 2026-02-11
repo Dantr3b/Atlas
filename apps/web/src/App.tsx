@@ -7,6 +7,7 @@ import TodayPage from './pages/TodayPage';
 import WeekPage from './pages/WeekPage';
 import InProgressPage from './pages/InProgressPage';
 import HomePage from './pages/HomePage';
+import BriefPage from './pages/BriefPage';
 import { api } from './lib/api';
 import './App.css';
 
@@ -56,6 +57,7 @@ function App() {
     <Routes>
       <Route element={<Layout onLogout={handleLogout} />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/brief" element={<BriefPage />} />
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/today" element={<TodayPage />} />
         <Route path="/week" element={<WeekPage />} />

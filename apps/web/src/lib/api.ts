@@ -111,23 +111,7 @@ export const api = {
     });
   },
 
-export interface NewsArticle {
-  title: string;
-  description: string;
-  url: string;
-  urlToImage: string;
-  source: {
-    name: string;
-  };
-  publishedAt: string;
-}
 
-export interface BriefResponse {
-  politics: NewsArticle | null;
-  business: NewsArticle | null;
-  sports: NewsArticle | null;
-  cachedAt: string;
-}
 
 // ... existing code ...
 
@@ -160,6 +144,31 @@ export interface BriefResponse {
     });
   },
 };
+
+export interface NewsArticle {
+  title: string;
+  description: string;
+  url: string;
+  urlToImage: string;
+  source: {
+    name: string;
+  };
+  publishedAt: string;
+}
+
+export interface BriefResponse {
+  news: {
+    france: NewsArticle | null;
+    international: NewsArticle | null;
+  };
+  business: {
+    france: NewsArticle | null;
+    international: NewsArticle | null;
+  };
+  sports: NewsArticle | null;
+  aiSummary?: string;
+  cachedAt: string;
+}
 
 export type { Task, CreateTaskData };
 export { ApiError };
