@@ -44,12 +44,13 @@ export async function generateMorningBrief(content: BriefContent): Promise<strin
       ${articles}
       
       Consignes :
+      - Ne commence PAS par une phrase d'introduction générale (type "Bonjour", "Bienvenue").
+      - Commence DIRECTEMENT par le contenu, par exemple "Aujourd'hui...".
       - Rédige 2-3 paragraphes bien développés (200-250 mots au total).
       - Pour chaque sujet majeur, donne du contexte et des détails importants.
       - Adopte un ton professionnel mais accessible (style "journal du matin").
       - Explique les enjeux et les implications de chaque actualité.
       - Fais des liens entre les sujets quand c'est pertinent.
-      - Termine par une phrase de conclusion ou une perspective pour la journée.
       - Structure : un paragraphe pour l'actualité générale, un pour l'économie, et un pour le sport.
     `;
 

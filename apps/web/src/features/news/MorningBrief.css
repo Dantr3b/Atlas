@@ -69,6 +69,19 @@
   text-transform: capitalize;
 }
 
+.weather-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.weather-range {
+  display: flex;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-top: 2px;
+}
+
 /* Forecast Section */
 .brief-forecast {
   margin-bottom: var(--space-4);
@@ -170,6 +183,7 @@
   margin-bottom: var(--space-4);
   padding-bottom: var(--space-2);
   border-bottom: 2px solid var(--color-surface-hover);
+  gap: var(--space-4);
 }
 
 .morning-brief__title {
@@ -179,12 +193,66 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  margin: 0;
 }
 
 .brief-date {
   color: var(--color-text-tertiary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
+}
+
+.play-brief-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.play-brief-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
+.play-brief-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.play-brief-btn.playing {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.play-brief-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: btn-spin 0.8s linear infinite;
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+.btn-icon {
+  font-size: 1.1rem;
 }
 
 /* AI Summary Section */
@@ -285,9 +353,20 @@
 
 @media (max-width: 768px) {
   .morning-brief__header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-2);
+    align-items: center;
+    gap: var(--space-3);
+  }
+  
+  .btn-text {
+    display: none;
+  }
+  
+  .play-brief-btn {
+    padding: var(--space-2);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    justify-content: center;
   }
 }
 

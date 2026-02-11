@@ -1,7 +1,7 @@
 import Parser from 'rss-parser';
 import { generateMorningBrief } from './briefService';
 
-interface NewsArticle {
+export interface NewsArticle {
   title: string;
   description: string;
   url: string;

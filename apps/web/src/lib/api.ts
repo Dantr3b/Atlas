@@ -135,6 +135,34 @@ export const api = {
     });
   },
 
+  // Brief
+  async getDailyBrief(): Promise<{
+    id: string;
+    date: string;
+    content: GeneratedBrief;
+    listened: boolean;
+    generatedAt: string;
+  }> {
+    return fetchAPI('/brief/daily');
+  },
+
+  async markBriefListened(date: string): Promise<{ success: boolean; listened: boolean }> {
+      return fetchAPI(`/brief/${date}/listened`, {
+          method: 'POST'
+      });
+  },
+
+  async getDailyBriefAudio(): Promise<Blob> {
+    const response = await fetch(`${API_URL}/brief/audio`, {
+      credentials: 'include',
+    });
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to generate audio' }));
+        throw new ApiError(response.status, error.error || 'Failed to generate audio');
+    }
+    return response.blob();
+  },
+
   // News
   async getBrief(): Promise<BriefResponse> {
     return fetchAPI('/news/brief');
@@ -225,6 +253,36 @@ export interface WeatherResponse {
   location: string;
   weather: WeatherData;
   forecast: DailyForecast;
+}
+
+export interface GeneratedBrief {
+  intro: string;
+  weather: {
+    location: string;
+    description: string;
+    temperature: number;
+    minTemp: number;
+    maxTemp: number;
+    icon: string;
+    advice?: string;
+  };
+  news: {
+    summary: string;
+    sections: {
+        newsFrance: NewsArticle | null;
+        newsIntl: NewsArticle | null;
+        bizFrance: NewsArticle | null;
+        bizIntl: NewsArticle | null;
+        sports: NewsArticle | null;
+    };
+  };
+  tasks: {
+    id: string;
+    content: string;
+    priority: number;
+    deadline?: string;
+  }[];
+  fullText?: string;
 }
 
 export type { Task, CreateTaskData };

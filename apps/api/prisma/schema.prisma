@@ -146,6 +146,9 @@ model DailyBrief {
   // Brief content (plain text for TTS)
   fullText String @map("full_text") @db.Text
 
+  // Status
+  listened Boolean @default(false)
+
   // Individual sections (for display/editing)
   weatherSummary String? @map("weather_summary")
   eventsSummary  String? @map("events_summary")

@@ -1,38 +1,23 @@
 import { useState, useEffect } from 'react';
-import { api, type BriefResponse, type GreetingResponse, type WeatherResponse } from '../../lib/api';
+import { api, type GeneratedBrief } from '../../lib/api';
 import NewsCard from './NewsCard';
 import './MorningBrief.css';
 
 export default function MorningBrief() {
-  const [brief, setBrief] = useState<BriefResponse | null>(null);
-  const [greeting, setGreeting] = useState<GreetingResponse | null>(null);
-  const [weather, setWeather] = useState<WeatherResponse | null>(null);
+  const [brief, setBrief] = useState<GeneratedBrief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch both brief and greeting in parallel
-        const [briefData, greetingData] = await Promise.all([
-          api.getBrief(),
-          api.getGreeting(),
-        ]);
-        console.log('Brief data received:', briefData);
-        console.log('Greeting data received:', greetingData);
-        setBrief(briefData);
-        setGreeting(greetingData);
-
-        // Fetch weather based on destination
-        if (greetingData.destination) {
-          try {
-            const weatherData = await api.getWeather(greetingData.destination);
-            console.log('Weather data received:', weatherData);
-            setWeather(weatherData);
-          } catch (err) {
-            console.error('Failed to fetch weather:', err);
-          }
-        }
+        // Fetch daily brief (includes greeting, weather, news, tasks)
+        const response = await api.getDailyBrief();
+        console.log('Daily Brief data received:', response);
+        setBrief(response.content);
       } catch (err) {
         console.error('Failed to fetch morning brief:', err);
         setError('Impossible de récupérer le brief du matin.');
@@ -42,7 +27,46 @@ export default function MorningBrief() {
     };
 
     fetchData();
-  }, []);
+
+    // Cleanup audio on unmount
+    return () => {
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+      }
+    };
+  }, [audio]);
+
+  const handlePlayAudio = async () => {
+    if (playing && audio) {
+        audio.pause();
+        setPlaying(false);
+        return;
+    }
+
+    if (audio) {
+        audio.play();
+        setPlaying(true);
+        return;
+    }
+
+    // Load audio
+    setAudioLoading(true);
+    try {
+        const blob = await api.getDailyBriefAudio();
+        const url = URL.createObjectURL(blob);
+        const newAudio = new Audio(url);
+        newAudio.onended = () => setPlaying(false);
+        setAudio(newAudio);
+        newAudio.play();
+        setPlaying(true);
+    } catch (err) {
+        console.error('Failed to play audio brief:', err);
+        // Fallback error message (optional)
+    } finally {
+        setAudioLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -66,96 +90,100 @@ export default function MorningBrief() {
   }
 
   // Check if we have at least one article
-  const hasContent = 
-    brief.news.france || 
-    brief.news.international || 
-    brief.business.france || 
-    brief.business.international || 
-    brief.sports;
+  const hasNewsContent = 
+    brief.news.sections.newsFrance || 
+    brief.news.sections.newsIntl || 
+    brief.news.sections.bizFrance || 
+    brief.news.sections.bizIntl || 
+    brief.news.sections.sports;
 
-  if (!hasContent) {
+  // We show brief if we have Intro or News
+  if (!brief.intro && !hasNewsContent) {
     return null;
   }
 
   return (
     <div className="morning-brief">
-      {greeting?.destination && (
-        <div className="brief-greeting">
-          <div className="brief-greeting__content">
-            <p className="brief-greeting__text">
-              Bonjour Gabin, aujourd'hui direction <span className="destination">{greeting.destination}</span>
-            </p>
-            {weather && (
-              <div className="brief-weather">
-                <span className="weather-icon">{weather.weather.icon}</span>
-                <div className="weather-info">
-                  <span className="weather-temp">{weather.weather.temperature}°C</span>
-                  <span className="weather-desc">{weather.weather.description}</span>
+      <div className="brief-greeting">
+        <div className="brief-greeting__content">
+          <p className="brief-greeting__text">
+            {brief.intro}
+          </p>
+          {brief.weather && (
+            <div className="brief-weather">
+              <span className="weather-icon">{brief.weather.icon}</span>
+              <div className="weather-info">
+                <div className="weather-main">
+                  <span className="weather-temp">{brief.weather.temperature}°C</span>
+                  <span className="weather-desc">{brief.weather.description}</span>
                 </div>
+                <div className="weather-range">
+                  <span className="temp-min">↓ {brief.weather.minTemp}°</span>
+                  <span className="temp-max">↑ {brief.weather.maxTemp}°</span>
+                </div>
+                {brief.weather.advice && <span className="weather-advice">{brief.weather.advice}</span>}
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {weather?.forecast && (
-        <div className="brief-forecast">
-          <div className="forecast-header">
-            <h3 className="forecast-title">Prévisions de la journée</h3>
-            <div className="forecast-minmax">
-              <span className="temp-min">↓ {weather.forecast.temperatureMin}°C</span>
-              <span className="temp-max">↑ {weather.forecast.temperatureMax}°C</span>
             </div>
-          </div>
-          <div className="forecast-hourly">
-            {weather.forecast.hourly.slice(0, 8).map((hour, index) => (
-              <div key={index} className="forecast-hour">
-                <span className="hour-time">{hour.time}</span>
-                <span className="hour-icon">{hour.icon}</span>
-                <span className="hour-temp">{hour.temperature}°</span>
-                {hour.precipitation > 0 && (
-                  <span className="hour-rain">💧 {hour.precipitation}%</span>
-                )}
-              </div>
-            ))}
-          </div>
+          )}
         </div>
-      )}
-
-      <div className="morning-brief__header">
-        <h2 className="morning-brief__title">
-          ☕ Brief du matin
-        </h2>
-        <span className="brief-date">
-          {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </span>
       </div>
 
-      {brief.aiSummary && (
+      <div className="morning-brief__header">
+        <div className="header-left">
+          <h2 className="morning-brief__title">
+            ☕ Brief du matin
+          </h2>
+          <span className="brief-date">
+            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </span>
+        </div>
+        <button 
+          className={`play-brief-btn ${playing ? 'playing' : ''} ${audioLoading ? 'loading' : ''}`}
+          onClick={handlePlayAudio}
+          disabled={audioLoading}
+          title={playing ? "Arrêter la lecture" : "Écouter le brief"}
+        >
+          {audioLoading ? (
+            <div className="btn-spinner"></div>
+          ) : playing ? (
+            <span className="btn-icon">⏹️</span>
+          ) : (
+            <span className="btn-icon">🔊</span>
+          )}
+          <span className="btn-text">
+            {audioLoading ? "Génération..." : playing ? "Arrêter" : "Écouter"}
+          </span>
+        </button>
+      </div>
+
+      {brief.news.summary && (
         <div className="brief-summary">
           <div className="brief-summary__header">
             <span className="sparkle-icon">✨</span>
             <span className="summary-label">Le point Gemini</span>
           </div>
           <p className="brief-summary__text">
-            {brief.aiSummary}
+            {brief.news.summary}
           </p>
         </div>
       )}
 
+      {/* Task Summary Section could be added here if desired, 
+          currently tasks are in brief.tasks but UI design focused on News */}
+      
       <div className="brief-content">
         <div className="brief-column">
           <h3 className="column-title">🗞️ Actualités</h3>
           <div className="cards-stack">
-            {brief.news.france && (
+            {brief.news.sections.newsFrance && (
               <NewsCard
-                article={brief.news.france}
+                article={brief.news.sections.newsFrance}
                 category="France"
               />
             )}
-            {brief.news.international && (
+            {brief.news.sections.newsIntl && (
               <NewsCard
-                article={brief.news.international}
+                article={brief.news.sections.newsIntl}
                 category="Monde"
               />
             )}
@@ -165,15 +193,15 @@ export default function MorningBrief() {
         <div className="brief-column">
           <h3 className="column-title">💼 Économie</h3>
           <div className="cards-stack">
-            {brief.business.france && (
+            {brief.news.sections.bizFrance && (
               <NewsCard
-                article={brief.business.france}
+                article={brief.news.sections.bizFrance}
                 category="France"
               />
             )}
-            {brief.business.international && (
+            {brief.news.sections.bizIntl && (
               <NewsCard
-                article={brief.business.international}
+                article={brief.news.sections.bizIntl}
                 category="Monde"
               />
             )}
@@ -183,9 +211,9 @@ export default function MorningBrief() {
         <div className="brief-column">
           <h3 className="column-title">🏆 Sport</h3>
           <div className="sport-card-wrapper">
-             {brief.sports && (
+             {brief.news.sections.sports && (
               <NewsCard
-                article={brief.sports}
+                article={brief.news.sections.sports}
                 category="À la une"
               />
             )}

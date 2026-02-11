@@ -1,99 +1,146 @@
 import { FastifyInstance } from 'fastify';
-import { requireAuth } from '../middleware/require-auth.js';
+import { dailyBriefService } from '../services/dailyBriefService.js';
+import { ttsService } from '../services/ttsService.js';
 import { prisma } from '../lib/prisma.js';
-import { GoogleCalendarService } from '../lib/google-calendar.js';
-
-interface GreetingResponse {
-  destination: 'FunKart' | 'Sophia' | null;
-  firstEvent: {
-    summary: string;
-    start: string;
-    calendarLabel: string;
-  } | null;
-}
+import { requireAuth } from '../middleware/require-auth.js';
 
 export default async function briefRoutes(fastify: FastifyInstance) {
-  // Require authentication for all routes
+  // Routes require authentication
   fastify.addHook('onRequest', requireAuth);
 
-  // GET /brief/greeting - Get personalized greeting based on first calendar event
-  fastify.get('/greeting', async (request, reply) => {
-    const userId = request.session.get('userId')!;
+  // GET /brief/audio - Get audio stream of today's brief
+  fastify.get('/audio', async (request, reply) => {
+    const userId = request.session.get('userId');
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let dbBrief = await prisma.dailyBrief.findUnique({
+      where: { userId_date: { userId, date: today } }
+    });
+
+    if (!dbBrief) {
+         request.log.info({ msg: 'Generating daily brief for audio request', userId });
+         await dailyBriefService.generateBriefForUser(userId, today);
+         dbBrief = await prisma.dailyBrief.findUnique({
+           where: { userId_date: { userId, date: today } }
+         });
+    }
+
+    if (!dbBrief) {
+        return reply.status(404).send({ error: 'Brief not found' });
+    }
 
     try {
-      // Get user with access token
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-      });
+        const briefData = JSON.parse(dbBrief.fullText);
+        const script = dailyBriefService.generateSpeechScript(briefData);
+        
+        const audioBuffer = await ttsService.synthesize(script);
+        
+        reply.type('audio/mpeg');
+        return reply.send(audioBuffer);
+    } catch (e) {
+        request.log.error(e);
+        return reply.status(500).send({ error: 'Failed to generate audio' });
+    }
+  });
 
-      if (!user?.accessToken) {
-        return reply.send({ destination: null, firstEvent: null });
-      }
+  // GET /brief/daily - Get or generate today's brief
+  fastify.get('/daily', async (request, reply) => {
+    // Get user from session
+    const userId = request.session.get('userId');
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    
+    // Check if brief exists for today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      // Get user's enabled calendars
-      const userCalendars = await prisma.userCalendar.findMany({
-        where: { userId, enabled: true },
-      });
-
-      if (userCalendars.length === 0) {
-        return reply.send({ destination: null, firstEvent: null });
-      }
-
-      // Define today's time range (midnight to 11:59 PM)
-      const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
-      // Fetch today's events
-      const calendarService = new GoogleCalendarService(
-        user.accessToken,
-        user.refreshToken || undefined
-      );
-
-      const events = await calendarService.getEventsFromMultipleCalendars(
-        userCalendars.map((c) => c.calendarId),
-        startOfDay,
-        endOfDay
-      );
-
-      if (events.length === 0) {
-        return reply.send({ destination: null, firstEvent: null });
-      }
-
-      // Get the first event (already sorted by start time)
-      const firstEvent = events[0];
-
-      // Find the calendar label for this event
-      const eventCalendar = userCalendars.find((c) => c.calendarId === firstEvent.calendarId);
-      const calendarLabel = eventCalendar?.label || 'Unknown';
-
-      // Determine destination based on calendar and event
-      let destination: 'FunKart' | 'Sophia' = 'Sophia'; // Default to Sophia
-
-      // Check if it's from ALTERNANCE GABIN calendar and event is "g"
-      if (calendarLabel.toUpperCase().includes('ALTERNANCE') && 
-          calendarLabel.toUpperCase().includes('GABIN') &&
-          firstEvent.summary.toLowerCase().trim() === 'g') {
-        destination = 'FunKart';
-      }
-      // Check if it's from HYP calendar (courses)
-      else if (calendarLabel.includes('HYP') || calendarLabel.includes('ROLLAND-BERTRAND')) {
-        destination = 'Sophia';
-      }
-
-      const response: GreetingResponse = {
-        destination,
-        firstEvent: {
-          summary: firstEvent.summary,
-          start: firstEvent.start.dateTime || firstEvent.start.date || '',
-          calendarLabel,
-        },
-      };
-
-      return reply.send(response);
+    // Always generate/update brief to ensure fresh tasks and weather
+    // (News service handles caching internally to avoid excessive AI calls)
+    try {
+      request.log.info({ msg: 'Generating/Updating daily brief for user', userId });
+      await dailyBriefService.generateBriefForUser(userId, today);
     } catch (error) {
-      fastify.log.error(error instanceof Error ? error.message : 'Error fetching greeting');
-      return reply.send({ destination: null, firstEvent: null });
+      request.log.error(error);
+      return reply.status(500).send({ error: 'Failed to generate brief' });
+    }
+
+    // Fetch the updated brief from DB
+    const brief = await prisma.dailyBrief.findUnique({
+      where: {
+        userId_date: {
+          userId,
+          date: today,
+        },
+      },
+      select: {
+        id: true,
+        fullText: true, // JSON content
+        listened: true,
+        generatedAt: true,
+      }
+    });
+
+    if (!brief) {
+      return reply.status(500).send({ error: 'Failed to retrieve brief' });
+    }
+
+    try {
+        const content = JSON.parse(brief.fullText);
+        return reply.send({
+            id: brief.id,
+            date: today.toISOString().split('T')[0],
+            content,
+            listened: brief.listened,
+            generatedAt: brief.generatedAt
+        });
+    } catch (e) {
+        request.log.error(e);
+        return reply.status(500).send({ error: 'Invalid brief format' });
+    }
+  });
+
+  // POST /brief/:date/listened - Mark brief as listened
+  fastify.post('/:date/listened', async (request, reply) => {
+    const userId = request.session.get('userId');
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    
+    const { date } = request.params as { date: string };
+    
+    let targetDate = new Date();
+    if (date === 'today' || !date) {
+        targetDate = new Date();
+    } else {
+        targetDate = new Date(date);
+    }
+    targetDate.setHours(0, 0, 0, 0);
+
+    if (isNaN(targetDate.getTime())) {
+        return reply.status(400).send({ error: 'Invalid date format' });
+    }
+
+    try {
+        await prisma.dailyBrief.update({
+            where: {
+                userId_date: {
+                    userId,
+                    date: targetDate
+                }
+            },
+            data: {
+                listened: true
+            }
+        });
+        return reply.send({ success: true, listened: true });
+    } catch (e) {
+        return reply.status(404).send({ error: 'Brief not found for this date' });
     }
   });
 }
