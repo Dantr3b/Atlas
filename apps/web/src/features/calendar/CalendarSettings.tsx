@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { calendarAPI, type CalendarConfig, type GoogleCalendar } from '../../lib/calendar-api';
+import { api } from '../../lib/api';
 import './CalendarSettings.css';
 
 const DAYS_OF_WEEK = [
@@ -17,8 +18,10 @@ export default function CalendarSettings() {
   const [userCalendars, setUserCalendars] = useState<CalendarConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
 
   useEffect(() => {
     loadCalendars();
@@ -38,6 +41,21 @@ export default function CalendarSettings() {
       setError(`Erreur lors du chargement des calendriers: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      setError('');
+      setSyncMessage('');
+      const result = await api.syncCalendars();
+      setSyncMessage(result.message);
+      setTimeout(() => setSyncMessage(''), 5000);
+    } catch (err) {
+      setError(`Erreur lors de la synchronisation: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -98,14 +116,28 @@ export default function CalendarSettings() {
 
   return (
     <div className="calendar-settings">
-      <h2 className="calendar-settings__title">📅 Calendriers Google</h2>
-      <p className="calendar-settings__subtitle">
-        Sélectionnez les calendriers à synchroniser pour la détection du temps libre
-      </p>
+      <div className="calendar-settings__header">
+        <div>
+          <h2 className="calendar-settings__title">📅 Calendriers Google</h2>
+          <p className="calendar-settings__subtitle">
+            Sélectionnez les calendriers à synchroniser pour la détection du temps libre
+          </p>
+        </div>
+        <button
+          className="calendar-sync-btn"
+          onClick={handleSync}
+          disabled={syncing}
+        >
+          {syncing ? '🔄 Synchronisation...' : '🔄 Synchroniser'}
+        </button>
+      </div>
 
       {error && <div className="calendar-settings__error">{error}</div>}
       {success && (
         <div className="calendar-settings__success">Configuration sauvegardée !</div>
+      )}
+      {syncMessage && (
+        <div className="calendar-settings__success">{syncMessage}</div>
       )}
 
       <div className="calendar-settings__list">

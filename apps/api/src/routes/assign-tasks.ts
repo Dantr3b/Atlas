@@ -18,6 +18,18 @@ export default async function assignTasksRoutes(fastify: FastifyInstance) {
     const userId = request.session.get('userId')!;
 
     try {
+      // Check if user has calendars configured
+      const userCalendars = await prisma.userCalendar.findMany({
+        where: { userId, enabled: true },
+      });
+
+      if (userCalendars.length === 0) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Aucun calendrier configuré. Veuillez configurer vos calendriers dans les paramètres.',
+        });
+      }
+
       // Get today's date range (00:00 to 23:59)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -34,6 +46,14 @@ export default async function assignTasksRoutes(fastify: FastifyInstance) {
         },
         orderBy: { startTime: 'asc' },
       });
+
+      if (events.length === 0) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Aucun événement trouvé pour aujourd\'hui. Essayez de synchroniser vos calendriers manuellement.',
+          hint: 'Utilisez POST /calendars/sync pour forcer la synchronisation',
+        });
+      }
 
       // Analyze calendar and create time blocks
       const timeBlocks = analyzeCalendar(events, today, tomorrow);
@@ -61,6 +81,15 @@ export default async function assignTasksRoutes(fastify: FastifyInstance) {
 
       // Assign tasks to appropriate time blocks
       const assignments = assignTasksToBlocks(timeBlocks, tasks);
+
+      if (assignments.length === 0) {
+        return reply.send({
+          success: true,
+          assigned: 0,
+          message: 'Aucune tâche compatible avec les créneaux disponibles',
+          info: `${timeBlocks.length} créneaux analysés, ${tasks.length} tâches disponibles`,
+        });
+      }
 
       // Update tasks in database
       const now = new Date();
@@ -200,14 +229,19 @@ function assignTasksToBlocks(blocks: TimeBlock[], tasks: any[]): string[] {
     }
 
     // Determine which tasks to assign based on block context
-    let eligibleTasks = availableTasks.filter(task => {
-      if (block.context === 'WORK') {
-        return task.context === 'WORK';
-      } else if (block.context === 'FREE') {
-        return task.context === 'PERSONAL' || task.context === 'LEARNING';
-      }
-      return false;
-    });
+    let eligibleTasks: any[] = [];
+    
+    if (block.context === 'WORK') {
+      // For WORK blocks: prioritize WORK tasks, but allow PERSONAL if no WORK tasks available
+      const workTasks = availableTasks.filter(task => task.context === 'WORK');
+      const personalTasks = availableTasks.filter(task => task.context === 'PERSONAL');
+      eligibleTasks = [...workTasks, ...personalTasks];
+    } else if (block.context === 'FREE') {
+      // For FREE blocks: PERSONAL and LEARNING tasks
+      eligibleTasks = availableTasks.filter(task => 
+        task.context === 'PERSONAL' || task.context === 'LEARNING'
+      );
+    }
 
     // Fit tasks into the block
     let remainingTime = blockDuration;

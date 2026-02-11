@@ -4,6 +4,14 @@
   padding: var(--space-6);
 }
 
+.calendar-settings__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  gap: var(--space-4);
+}
+
 .calendar-settings__title {
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
@@ -14,7 +22,32 @@
 .calendar-settings__subtitle {
   font-size: var(--font-size-base);
   color: var(--color-text-secondary);
-  margin-bottom: var(--space-6);
+  margin-bottom: 0;
+}
+
+.calendar-sync-btn {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.calendar-sync-btn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px hsla(0, 0%, 0%, 0.3);
+}
+
+.calendar-sync-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .calendar-settings__error,

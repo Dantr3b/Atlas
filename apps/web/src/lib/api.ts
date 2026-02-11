@@ -103,6 +103,13 @@ export const api = {
       body: JSON.stringify({}),
     });
   },
+  
+  async syncCalendars(): Promise<{ success: boolean; synced: number; message: string }> {
+    return fetchAPI('/calendars/sync', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
 
   async assignDailyTasks(): Promise<{ success: boolean; assigned: number; message: string }> {
     return fetchAPI('/tasks/assign-daily', {

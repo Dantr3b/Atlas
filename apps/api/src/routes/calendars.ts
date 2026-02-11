@@ -202,4 +202,98 @@ export default async function calendarRoutes(fastify: FastifyInstance) {
 
     return reply.send({ events });
   });
+
+  // POST /calendars/sync - Manually trigger calendar sync
+  fastify.post('/sync', async (request, reply) => {
+    const userId = request.session.get('userId')!;
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          calendars: {
+            where: { enabled: true },
+          },
+        },
+      });
+
+      if (!user?.accessToken) {
+        return reply.status(401).send({ error: 'No Google access token found' });
+      }
+
+      if (user.calendars.length === 0) {
+        return reply.status(400).send({ 
+          error: 'No calendars configured',
+          message: 'Veuillez configurer vos calendriers dans les paramètres'
+        });
+      }
+
+      const calendarService = new GoogleCalendarService(
+        user.accessToken,
+        user.refreshToken || undefined
+      );
+
+      // Sync for the next 7 days
+      const timeMin = new Date();
+      const timeMax = new Date();
+      timeMax.setDate(timeMax.getDate() + 7);
+
+      const events = await calendarService.getEventsFromMultipleCalendars(
+        user.calendars.map((c) => c.calendarId),
+        timeMin,
+        timeMax
+      );
+
+      // Upsert events in the database
+      let syncedCount = 0;
+      for (const event of events) {
+        const isAllDay = !event.start.dateTime;
+        const startTime = new Date(event.start.dateTime || event.start.date || '');
+        const endTime = new Date(event.end.dateTime || event.end.date || '');
+
+        await prisma.calendarEvent.upsert({
+          where: {
+            userId_googleEventId: {
+              userId: user.id,
+              googleEventId: event.id,
+            },
+          },
+          create: {
+            userId: user.id,
+            googleEventId: event.id,
+            calendarId: event.calendarId,
+            summary: event.summary || 'Sans titre',
+            description: event.description,
+            location: event.location,
+            startTime,
+            endTime,
+            isAllDay,
+            lastSyncedAt: new Date(),
+          },
+          update: {
+            summary: event.summary || 'Sans titre',
+            description: event.description,
+            location: event.location,
+            startTime,
+            endTime,
+            isAllDay,
+            lastSyncedAt: new Date(),
+          },
+        });
+        syncedCount++;
+      }
+
+      return reply.send({
+        success: true,
+        synced: syncedCount,
+        message: `${syncedCount} événement${syncedCount > 1 ? 's' : ''} synchronisé${syncedCount > 1 ? 's' : ''}`,
+      });
+    } catch (error) {
+      fastify.log.error(error instanceof Error ? error.message : 'Error syncing calendars');
+      return reply.status(500).send({ 
+        error: 'Failed to sync calendars',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 }
