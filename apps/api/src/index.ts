@@ -11,6 +11,8 @@ import reorderTasksRoutes from './routes/reorder-tasks.js';
 import assignTasksRoutes from './routes/assign-tasks.js';
 import suggestTasksRoutes from './routes/suggest-tasks.js';
 import { newsRoutes } from './routes/news.js';
+import briefRoutes from './routes/brief.js';
+import weatherRoutes from './routes/weather.js';
 import { startCalendarSync } from './cron/sync-calendars.js';
 
 const fastify = Fastify({
@@ -52,6 +54,12 @@ const start = async () => {
 
     // Register news routes
     await fastify.register(newsRoutes, { prefix: '/news' });
+
+    // Register brief routes
+    await fastify.register(briefRoutes, { prefix: '/brief' });
+
+    // Register weather routes
+    await fastify.register(weatherRoutes, { prefix: '/weather' });
 
     // Register calendar routes
     await fastify.register(calendarRoutes, { prefix: '/calendars' });

@@ -1,19 +1,38 @@
 import { useState, useEffect } from 'react';
-import { api, type BriefResponse } from '../../lib/api';
+import { api, type BriefResponse, type GreetingResponse, type WeatherResponse } from '../../lib/api';
 import NewsCard from './NewsCard';
 import './MorningBrief.css';
 
 export default function MorningBrief() {
   const [brief, setBrief] = useState<BriefResponse | null>(null);
+  const [greeting, setGreeting] = useState<GreetingResponse | null>(null);
+  const [weather, setWeather] = useState<WeatherResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchBrief = async () => {
+    const fetchData = async () => {
       try {
-        const data = await api.getBrief();
-        console.log('Brief data received:', data);
-        setBrief(data);
+        // Fetch both brief and greeting in parallel
+        const [briefData, greetingData] = await Promise.all([
+          api.getBrief(),
+          api.getGreeting(),
+        ]);
+        console.log('Brief data received:', briefData);
+        console.log('Greeting data received:', greetingData);
+        setBrief(briefData);
+        setGreeting(greetingData);
+
+        // Fetch weather based on destination
+        if (greetingData.destination) {
+          try {
+            const weatherData = await api.getWeather(greetingData.destination);
+            console.log('Weather data received:', weatherData);
+            setWeather(weatherData);
+          } catch (err) {
+            console.error('Failed to fetch weather:', err);
+          }
+        }
       } catch (err) {
         console.error('Failed to fetch morning brief:', err);
         setError('Impossible de récupérer le brief du matin.');
@@ -22,7 +41,7 @@ export default function MorningBrief() {
       }
     };
 
-    fetchBrief();
+    fetchData();
   }, []);
 
   if (loading) {
@@ -60,6 +79,49 @@ export default function MorningBrief() {
 
   return (
     <div className="morning-brief">
+      {greeting?.destination && (
+        <div className="brief-greeting">
+          <div className="brief-greeting__content">
+            <p className="brief-greeting__text">
+              Bonjour Gabin, aujourd'hui direction <span className="destination">{greeting.destination}</span>
+            </p>
+            {weather && (
+              <div className="brief-weather">
+                <span className="weather-icon">{weather.weather.icon}</span>
+                <div className="weather-info">
+                  <span className="weather-temp">{weather.weather.temperature}°C</span>
+                  <span className="weather-desc">{weather.weather.description}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {weather?.forecast && (
+        <div className="brief-forecast">
+          <div className="forecast-header">
+            <h3 className="forecast-title">Prévisions de la journée</h3>
+            <div className="forecast-minmax">
+              <span className="temp-min">↓ {weather.forecast.temperatureMin}°C</span>
+              <span className="temp-max">↑ {weather.forecast.temperatureMax}°C</span>
+            </div>
+          </div>
+          <div className="forecast-hourly">
+            {weather.forecast.hourly.slice(0, 8).map((hour, index) => (
+              <div key={index} className="forecast-hour">
+                <span className="hour-time">{hour.time}</span>
+                <span className="hour-icon">{hour.icon}</span>
+                <span className="hour-temp">{hour.temperature}°</span>
+                {hour.precipitation > 0 && (
+                  <span className="hour-rain">💧 {hour.precipitation}%</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="morning-brief__header">
         <h2 className="morning-brief__title">
           ☕ Brief du matin

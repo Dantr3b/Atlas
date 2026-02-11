@@ -132,6 +132,16 @@ export const api = {
     return fetchAPI('/news/brief');
   },
 
+  // Brief
+  async getGreeting(): Promise<GreetingResponse> {
+    return fetchAPI('/brief/greeting');
+  },
+
+  // Weather
+  async getWeather(destination: 'FunKart' | 'Sophia'): Promise<WeatherResponse> {
+    return fetchAPI(`/weather/${destination}`);
+  },
+
   // Auth
   async getMe(): Promise<{ user: { id: string; email: string; name: string | null } }> {
     return fetchAPI('/auth/me');
@@ -168,6 +178,45 @@ export interface BriefResponse {
   sports: NewsArticle | null;
   aiSummary?: string;
   cachedAt: string;
+}
+
+export interface GreetingResponse {
+  destination: 'FunKart' | 'Sophia' | null;
+  firstEvent: {
+    summary: string;
+    start: string;
+    calendarLabel: string;
+  } | null;
+}
+
+export interface WeatherData {
+  temperature: number;
+  description: string;
+  icon: string;
+  feelsLike: number;
+  humidity: number;
+  windSpeed: number;
+}
+
+export interface HourlyForecast {
+  time: string;
+  temperature: number;
+  weatherCode: number;
+  icon: string;
+  description: string;
+  precipitation: number;
+}
+
+export interface DailyForecast {
+  temperatureMin: number;
+  temperatureMax: number;
+  hourly: HourlyForecast[];
+}
+
+export interface WeatherResponse {
+  location: string;
+  weather: WeatherData;
+  forecast: DailyForecast;
 }
 
 export type { Task, CreateTaskData };
