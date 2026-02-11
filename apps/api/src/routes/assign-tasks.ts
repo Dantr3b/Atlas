@@ -37,14 +37,25 @@ export default async function assignTasksRoutes(fastify: FastifyInstance) {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
+      fastify.log.info({
+        msg: 'Fetching events for task assignment',
+        today: today.toISOString(),
+        tomorrow: tomorrow.toISOString(),
+      });
+
       // Fetch today's calendar events
       const events = await prisma.calendarEvent.findMany({
         where: {
           userId,
-          startTime: { gte: today },
-          endTime: { lte: tomorrow },
+          startTime: { gte: today, lt: tomorrow },
         },
         orderBy: { startTime: 'asc' },
+      });
+
+      fastify.log.info({
+        msg: 'Found calendar events',
+        count: events.length,
+        events: events.map(e => ({ summary: e.summary, start: e.startTime, end: e.endTime })),
       });
 
       if (events.length === 0) {
@@ -56,19 +67,45 @@ export default async function assignTasksRoutes(fastify: FastifyInstance) {
       }
 
       // Analyze calendar and create time blocks
-      const timeBlocks = analyzeCalendar(events, today, tomorrow);
+      const timeBlocks = analyzeCalendar(events, userCalendars, today, tomorrow);
+
+      fastify.log.info({
+        msg: 'Time blocks created',
+        count: timeBlocks.length,
+        blocks: timeBlocks.map(b => ({
+          context: b.context,
+          start: b.start.toISOString(),
+          end: b.end.toISOString(),
+          duration: (b.end.getTime() - b.start.getTime()) / (60 * 1000),
+          eventSummary: b.eventSummary,
+        })),
+      });
 
       // Fetch unassigned tasks
       const tasks = await prisma.task.findMany({
         where: {
           userId,
           status: { not: 'COMPLETED' },
-          assignedDate: null, // Only unassigned tasks
+          OR: [
+            { assignedDate: null }, // Unassigned tasks
+            { assignedDate: { lt: today } }, // Tasks assigned in the past (overdue)
+          ],
         },
         orderBy: [
           { priority: 'desc' },
           { deadline: 'asc' },
         ],
+      });
+
+      fastify.log.info({
+        msg: 'Unassigned tasks found',
+        count: tasks.length,
+        tasks: tasks.map(t => ({
+          content: t.content,
+          context: t.context,
+          priority: t.priority,
+          estimatedDuration: t.estimatedDuration,
+        })),
       });
 
       if (tasks.length === 0) {
@@ -82,6 +119,12 @@ export default async function assignTasksRoutes(fastify: FastifyInstance) {
       // Assign tasks to appropriate time blocks
       const assignments = assignTasksToBlocks(timeBlocks, tasks);
 
+      fastify.log.info({
+        msg: 'Task assignment completed',
+        assignedCount: assignments.length,
+        assignedTaskIds: assignments,
+      });
+
       if (assignments.length === 0) {
         return reply.send({
           success: true,
@@ -93,14 +136,25 @@ export default async function assignTasksRoutes(fastify: FastifyInstance) {
 
       // Update tasks in database
       const now = new Date();
+      
+      // Create a date at noon for assignment to avoid timezone issues with @db.Date
+      // (00:00 local can become previous day in UTC)
+      const assignmentDate = new Date(today);
+      assignmentDate.setHours(12, 0, 0, 0);
+      
       let assignedCount = 0;
 
       for (const taskId of assignments) {
+        // Check current status of the task
+        const task = tasks.find(t => t.id === taskId);
+        const newStatus = task?.status === 'INBOX' ? 'PLANNED' : undefined;
+
         await prisma.task.update({
           where: { id: taskId },
           data: {
-            assignedDate: today,
+            assignedDate: assignmentDate,
             assignedAt: now,
+            ...(newStatus && { status: newStatus }),
           },
         });
         assignedCount++;
@@ -134,6 +188,7 @@ export default async function assignTasksRoutes(fastify: FastifyInstance) {
  */
 function analyzeCalendar(
   events: any[],
+  userCalendars: any[],
   dayStart: Date,
   dayEnd: Date
 ): TimeBlock[] {
@@ -143,6 +198,9 @@ function analyzeCalendar(
 
   const endTime = new Date(dayEnd);
   endTime.setHours(23, 0, 0, 0); // End at 11pm
+
+  // Create a map of calendar IDs to labels for easier lookup
+  const calendarMap = new Map(userCalendars.map(c => [c.calendarId, c.label]));
 
   // Sort events by start time
   const sortedEvents = [...events].sort((a, b) => 
@@ -163,7 +221,7 @@ function analyzeCalendar(
     }
 
     // Classify the event
-    const context = classifyEvent(event);
+    const context = classifyEvent(event, calendarMap);
     
     blocks.push({
       start: eventStart,
@@ -190,16 +248,20 @@ function analyzeCalendar(
 /**
  * Classify calendar event based on calendar ID
  */
-function classifyEvent(event: any): 'LEARNING' | 'WORK' | 'FREE' {
+function classifyEvent(event: any, calendarMap: Map<string, string>): 'LEARNING' | 'WORK' | 'FREE' {
   const calendarId = event.calendarId || '';
+  const calendarLabel = calendarMap.get(calendarId) || '';
+  
+  // Check label first (more reliable), then ID
+  const labelOrId = (calendarLabel + ' ' + calendarId).toUpperCase();
   
   // HYP calendar = courses
-  if (calendarId.includes('HYP') || calendarId.includes('ROLLAND-BERTRAND')) {
+  if (labelOrId.includes('HYP') || labelOrId.includes('ROLLAND-BERTRAND') || labelOrId.includes('COURS')) {
     return 'LEARNING';
   }
   
   // ALTERNANCE calendar = work
-  if (calendarId.includes('ALTERNANCE')) {
+  if (labelOrId.includes('ALTERNANCE') || labelOrId.includes('TRAVAIL') || labelOrId.includes('WORK')) {
     return 'WORK';
   }
   

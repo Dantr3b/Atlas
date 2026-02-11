@@ -22,6 +22,7 @@ interface CreateTaskData {
   deadline?: string;
   estimatedDuration?: number;
   priority?: number;
+  assignedDate?: string | null;
 }
 
 class ApiError extends Error {

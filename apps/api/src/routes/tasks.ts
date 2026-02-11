@@ -30,6 +30,7 @@ const updateTaskSchema = {
       deadline: { type: 'string', format: 'date-time' },
       estimatedDuration: { type: 'integer', enum: [5, 10, 15, 30, 60, 90, 120, 180, 300], nullable: true },
       priority: { type: 'integer', minimum: 1, maximum: 10 },
+      assignedDate: { type: 'string', format: 'date-time', nullable: true },
     },
   },
 };
@@ -94,7 +95,7 @@ export default async function taskRoutes(fastify: FastifyInstance) {
   fastify.put('/:id', { schema: updateTaskSchema }, async (request, reply) => {
     const userId = request.session.get('userId')!;
     const { id } = request.params as { id: string };
-    const { content, status, type, context, deadline, estimatedDuration, priority } = request.body as any;
+    const { content, status, type, context, deadline, estimatedDuration, priority, assignedDate } = request.body as any;
 
     // Check if task exists and belongs to user
     const existingTask = await prisma.task.findFirst({
@@ -108,16 +109,25 @@ export default async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ error: 'Task not found' });
     }
 
+    let newStatus = status !== undefined ? status : existingTask.status;
+    const newAssignedDate = assignedDate !== undefined ? (assignedDate ? new Date(assignedDate) : null) : existingTask.assignedDate;
+
+    // If task is assigned a date and is in INBOX, move to PLANNED
+    if (newAssignedDate && newStatus === 'INBOX') {
+      newStatus = 'PLANNED';
+    }
+
     const task = await prisma.task.update({
       where: { id },
       data: {
         content: content !== undefined ? content : existingTask.content,
-        status: status !== undefined ? status : existingTask.status,
+        status: newStatus,
         type: type !== undefined ? type : existingTask.type,
         context: context !== undefined ? context : existingTask.context,
         deadline: deadline !== undefined ? (deadline ? new Date(deadline) : null) : existingTask.deadline,
         estimatedDuration: estimatedDuration !== undefined ? estimatedDuration : existingTask.estimatedDuration,
         priority: priority !== undefined ? priority : existingTask.priority,
+        assignedDate: newAssignedDate,
       },
     });
 

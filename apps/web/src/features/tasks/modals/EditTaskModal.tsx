@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, type Task } from '../../../lib/api';
+import { api, type Task, type CreateTaskData } from '../../../lib/api';
 import './EditTaskModal.css';
 
 interface EditTaskModalProps {
@@ -17,6 +17,7 @@ export default function EditTaskModal({ isOpen, task, onClose, onTaskUpdated }: 
   const [priority, setPriority] = useState<number>(5);
   const [estimatedDuration, setEstimatedDuration] = useState<5 | 10 | 15 | 30 | 60 | null>(null);
   const [deadline, setDeadline] = useState('');
+  const [assignedDate, setAssignedDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -29,7 +30,8 @@ export default function EditTaskModal({ isOpen, task, onClose, onTaskUpdated }: 
       setType(task.type || '');
       setContext(task.context || '');
       setPriority(task.priority || 5);
-      setEstimatedDuration((task.estimatedDuration as 5 | 10 | 15 | 30 | 60 | null) || null);
+      setEstimatedDuration(((task as any).estimatedDuration as 5 | 10 | 15 | 30 | 60 | null) || null);
+      setAssignedDate(task.assignedDate || null);
       
       // Convert ISO date to datetime-local format
       if (task.deadline) {
@@ -58,7 +60,7 @@ export default function EditTaskModal({ isOpen, task, onClose, onTaskUpdated }: 
       setLoading(true);
       setError(null);
 
-      await api.updateTask(task.id, {
+      const updateData: Partial<CreateTaskData> = {
         content: content.trim(),
         status,
         type: type || undefined,
@@ -66,7 +68,13 @@ export default function EditTaskModal({ isOpen, task, onClose, onTaskUpdated }: 
         priority,
         estimatedDuration: estimatedDuration || undefined,
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
-      });
+        assignedDate: assignedDate,
+      };
+
+      await api.updateTask(task.id, updateData);
+
+      onTaskUpdated();
+      onClose();
 
       onTaskUpdated();
       onClose();
@@ -230,6 +238,52 @@ export default function EditTaskModal({ isOpen, task, onClose, onTaskUpdated }: 
                 onChange={(e) => setDeadline(e.target.value)}
                 className="task-form__input"
               />
+            </div>
+          </div>
+
+          <div className="task-form__row task-form__assignment">
+            <div className="task-form__group">
+              <label className="task-form__label">Planification</label>
+              <div className="task-assignment-controls">
+                {assignedDate && new Date(assignedDate).setHours(0,0,0,0) >= new Date().setHours(0,0,0,0) ? (
+                  <div className="task-assignment-info">
+                    <span className="task-assignment-label">Assignée le :</span>
+                    <span className="task-assignment-value">
+                      {new Date(assignedDate).toLocaleDateString()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAssignedDate(null)}
+                      className="task-assignment-clear"
+                      title="Retirer l'assignation"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                    {assignedDate && (
+                      <div className="task-assignment-info" style={{ opacity: 0.7 }}>
+                        <span className="task-assignment-label">Précédemment :</span>
+                        <span className="task-assignment-value">
+                          {new Date(assignedDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+                        setAssignedDate(today.toISOString());
+                      }}
+                      className="task-assignment-btn"
+                    >
+                      📅 {assignedDate ? "Reporter à aujourd'hui" : "Assigner à aujourd'hui"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
