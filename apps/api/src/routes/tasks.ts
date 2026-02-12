@@ -13,8 +13,9 @@ const createTaskSchema = {
       type: { type: 'string', enum: ['QUICK', 'DEEP_WORK', 'COURSE', 'ADMIN'] },
       context: { type: 'string', enum: ['PERSONAL', 'WORK', 'LEARNING'] },
       deadline: { type: 'string', format: 'date-time' },
-      estimatedDuration: { type: 'integer', enum: [5, 10, 15, 30, 60], nullable: true }, // 5m, 10m, 15m, 30m, 1h, or null for custom
-      priority: { type: 'integer', minimum: 1, maximum: 10 },
+      estimatedDuration: { type: 'integer', nullable: true },
+      priority: { type: 'integer', minimum: 0, maximum: 10 },
+      assignedDate: { type: 'string', format: 'date-time', nullable: true },
     },
   },
 };
@@ -28,8 +29,8 @@ const updateTaskSchema = {
       type: { type: 'string', enum: ['QUICK', 'DEEP_WORK', 'COURSE', 'ADMIN'] },
       context: { type: 'string', enum: ['PERSONAL', 'WORK', 'LEARNING'] },
       deadline: { type: 'string', format: 'date-time' },
-      estimatedDuration: { type: 'integer', enum: [5, 10, 15, 30, 60, 90, 120, 180, 300], nullable: true },
-      priority: { type: 'integer', minimum: 1, maximum: 10 },
+      estimatedDuration: { type: 'integer', nullable: true },
+      priority: { type: 'integer', minimum: 0, maximum: 10 },
       assignedDate: { type: 'string', format: 'date-time', nullable: true },
     },
   },
@@ -42,17 +43,19 @@ export default async function taskRoutes(fastify: FastifyInstance) {
   // POST /tasks - Create a new task
   fastify.post('/', { schema: createTaskSchema }, async (request, reply) => {
     const userId = request.session.get('userId')!;
-    const { content, status, type, context, deadline, estimatedDuration, priority } = request.body as any;
+    const { content, status, type, context, deadline, estimatedDuration, priority, assignedDate } = request.body as any;
 
     const task = await prisma.task.create({
       data: {
         content,
-        status: status || 'INBOX',
+        // If assignedDate is present, default to PLANNED, otherwise INBOX
+        status: status || (assignedDate ? 'PLANNED' : 'INBOX'),
         ...(type && { type }),
         ...(context && { context }),
         deadline: deadline ? new Date(deadline) : null,
         estimatedDuration: estimatedDuration || null,
-        ...(priority !== undefined && { priority }),
+        priority: priority !== undefined ? priority : 0,
+        assignedDate: assignedDate ? new Date(assignedDate) : null,
         userId,
       },
     });
@@ -63,7 +66,12 @@ export default async function taskRoutes(fastify: FastifyInstance) {
   // GET /tasks - List all tasks for authenticated user
   fastify.get('/', async (request, reply) => {
     const userId = request.session.get('userId')!;
-    const { assignedDate } = request.query as { assignedDate?: string };
+    const { assignedDate, status, deadlineStart, deadlineEnd } = request.query as { 
+      assignedDate?: string; 
+      status?: string;
+      deadlineStart?: string;
+      deadlineEnd?: string;
+    };
 
     const where: any = { userId };
 
@@ -79,6 +87,22 @@ export default async function taskRoutes(fastify: FastifyInstance) {
       // Prisma `DateTime @db.Date` fields usually work with ISO strings.
       
       where.assignedDate = new Date(assignedDate);
+    }
+
+    if (status) {
+      // Filter by status (e.g., INBOX, IN_PROGRESS, DONE)
+      where.status = status;
+    }
+
+    if (deadlineStart || deadlineEnd) {
+      // Filter by deadline range
+      where.deadline = {};
+      if (deadlineStart) {
+        where.deadline.gte = new Date(deadlineStart);
+      }
+      if (deadlineEnd) {
+        where.deadline.lte = new Date(deadlineEnd);
+      }
     }
 
     const tasks = await prisma.task.findMany({

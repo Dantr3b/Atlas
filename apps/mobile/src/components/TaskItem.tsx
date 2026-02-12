@@ -4,82 +4,74 @@ import { Feather } from '@expo/vector-icons';
 
 interface TaskItemProps {
   content: string;
-  priority: number;
-  onPress?: () => void;
+  priority?: string;
   onEdit?: () => void;
+  isCompleted?: boolean;
 }
 
-export default function TaskItem({ content, priority, onPress, onEdit }: TaskItemProps) {
-  const getPriorityColor = (p: number) => {
-    if (p >= 4) return '#FF3B30'; // Red
-    if (p >= 2) return '#FF9500'; // Orange
-    return '#34C759'; // Green
+export default function TaskItem({ content, priority, onEdit, isCompleted = false }: TaskItemProps) {
+  const getPriorityColor = () => {
+    switch (priority) {
+      case 'CRITICAL':
+        return '#FF3B30'; // Rouge
+      case 'HIGH':
+        return '#FF9500'; // Orange
+      case 'MEDIUM':
+        return '#007AFF'; // Bleu
+      case 'LOW':
+        return '#34C759'; // Vert
+      default:
+        return '#8E8E93'; // Gris par défaut
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity 
-        style={styles.contentTouchable} 
-        activeOpacity={0.7}
-        onPress={onPress}
-      >
-        <View style={[styles.priorityLine, { backgroundColor: getPriorityColor(priority) }]} />
-        <View style={styles.contentContainer}>
-          <Text style={styles.taskText} numberOfLines={2}>
-            {content}
-          </Text>
-        </View>
-      </TouchableOpacity>
-      
-      {onEdit && (
-        <TouchableOpacity style={styles.editButton} onPress={onEdit}>
-          <Feather name="edit-2" size={20} color="#8E8E93" />
-        </TouchableOpacity>
-      )}
-    </View>
+    <TouchableOpacity 
+      style={[styles.container, isCompleted && styles.completedContainer]} 
+      onPress={onEdit}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor() }]} />
+      <Text style={[styles.content, isCompleted && styles.completedText]} numberOfLines={2}>
+        {content}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 16,
-    marginBottom: 12,
-    overflow: 'hidden',
-    // iOS Shadow
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    // Android Shadow
     elevation: 2,
-    height: 70,
   },
-  contentTouchable: {
+  completedContainer: {
+    backgroundColor: '#F2F2F7',
+    opacity: 0.6,
+  },
+  priorityIndicator: {
+    width: 4,
+    height: 40,
+    borderRadius: 2,
+    marginRight: 12,
+  },
+  content: {
     flex: 1,
-    flexDirection: 'row',
-  },
-  priorityLine: {
-    width: 6,
-    height: '100%',
-  },
-  contentContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-  },
-  taskText: {
     fontSize: 16,
     fontWeight: '500',
     color: '#1C1C1E',
     lineHeight: 22,
   },
-  editButton: {
-    width: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: '#F2F2F7',
+  completedText: {
+    color: '#8E8E93',
+    textDecorationLine: 'line-through',
   },
 });

@@ -28,6 +28,16 @@ export interface Task {
   updatedAt: string;
 }
 
+export interface ParsedTask {
+  content: string;
+  deadline: string | null;
+  priority: number | null;
+  type: 'QUICK' | 'DEEP_WORK' | 'COURSE' | 'ADMIN' | null;
+  context: 'PERSONAL' | 'WORK' | 'LEARNING' | null;
+  estimatedDuration: number | null;
+  confidence: number;
+}
+
 class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -65,10 +75,38 @@ export const api = {
     return fetchAPI(`/tasks?assignedDate=${today}`);
   },
 
-  async createTask(content: string): Promise<{ task: Task }> {
+  async getInboxTasks(): Promise<{ tasks: Task[] }> {
+    return fetchAPI('/tasks?status=INBOX');
+  },
+
+  async getInProgressTasks(): Promise<{ tasks: Task[] }> {
+    return fetchAPI('/tasks?status=IN_PROGRESS');
+  },
+
+  async getWeekTasks(): Promise<{ tasks: Task[] }> {
+    // Get start and end of current week (Monday to Sunday)
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ...
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // If Sunday, go back 6 days
+    
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + mondayOffset);
+    monday.setHours(0, 0, 0, 0);
+    
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    
+    const deadlineStart = monday.toISOString().split('T')[0];
+    const deadlineEnd = sunday.toISOString().split('T')[0];
+    
+    return fetchAPI(`/tasks?deadlineStart=${deadlineStart}&deadlineEnd=${deadlineEnd}`);
+  },
+
+  async createTask(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ task: Task }> {
     return fetchAPI('/tasks', {
       method: 'POST',
-      body: JSON.stringify({ content, status: 'INBOX' }),
+      body: JSON.stringify(taskData),
     });
   },
 
@@ -88,5 +126,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
-  }
+  },
+
+  async parseNaturalLanguage(text: string): Promise<ParsedTask> {
+    return fetchAPI('/tasks/parse-natural', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
 };

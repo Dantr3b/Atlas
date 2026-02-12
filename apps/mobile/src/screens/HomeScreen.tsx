@@ -1,31 +1,34 @@
-import * as React from 'react';
+import React from 'react';
 import { 
-  StyleSheet, 
-  Text, 
   View, 
+  Text, 
+  TextInput,
   TouchableOpacity, 
-  TextInput, 
+  StyleSheet, 
   SafeAreaView, 
   ScrollView,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import TaskItem from '../components/TaskItem';
 import { api, Task } from '../lib/api';
-
-import EditTaskModal from '../components/EditTaskModal';
+import TaskItem from '../components/TaskItem';
+import TaskModal from '../components/TaskModal';
+import Header from '../components/Header';
 
 export default function HomeScreen() {
-  const [taskInput, setTaskInput] = React.useState('');
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [user, setUser] = React.useState<{ name: string | null } | null>(null);
 
-  const [isEditModalVisible, setIsEditModalVisible] = React.useState(false);
+  const [isTaskModalVisible, setIsTaskModalVisible] = React.useState(false);
   const [editingTask, setEditingTask] = React.useState<Task | null>(null);
+  const [prefillData, setPrefillData] = React.useState<Partial<Task> | null>(null);
+
+  const [naturalInput, setNaturalInput] = React.useState('');
+  const [isParsing, setIsParsing] = React.useState(false);
 
   const fetchData = async () => {
     try {
@@ -59,29 +62,64 @@ export default function HomeScreen() {
     fetchData();
   };
 
-  const handleAddTask = async () => {
-    if (!taskInput.trim()) return;
-    
-    try {
-      await api.createTask(taskInput.trim());
-      setTaskInput('');
-      fetchData(); // Refresh list
-    } catch (err) {
-      alert('Erreur lors de l\'ajout de la tâche');
-    }
+  // Open modal in CREATE mode
+  const handleOpenCreateModal = () => {
+    setEditingTask(null);
+    setPrefillData(null);
+    setIsTaskModalVisible(true);
   };
 
+  // Open modal in EDIT mode
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
-    setIsEditModalVisible(true);
+    setIsTaskModalVisible(true);
   };
 
-  const handleSaveEdit = async (id: string, updates: Partial<Task>) => {
+  const handleSaveTask = async (taskData: Partial<Task>) => {
     try {
-      await api.updateTask(id, updates);
+      if (editingTask) {
+        await api.updateTask(editingTask.id, taskData);
+      } else {
+        // Safe cast as we know create expects specific fields but api.ts types might be slightly different
+        // In reality, api.createTask expects Omit<Task, 'id'...> which Partial<Task> mostly satisfies if required fields are present
+        // But for safety validation should happen in Modal. 
+        // For now, we trust the modal validation.
+        await api.createTask(taskData as any);
+      }
       fetchData(); // Refresh list
     } catch (err) {
       throw err; // Let modal handle error
+    }
+  };
+
+  const handleParseAndCreate = async () => {
+    if (!naturalInput.trim()) return;
+
+    try {
+      setIsParsing(true);
+      const parsed = await api.parseNaturalLanguage(naturalInput);
+      
+      // Convert ParsedTask to Partial<Task> format for modal
+      const taskData: Partial<Task> = {
+        content: parsed.content,
+        status: 'INBOX',
+        type: parsed.type || undefined,
+        context: parsed.context || 'PERSONAL',
+        priority: parsed.priority || 0,
+        estimatedDuration: parsed.estimatedDuration || undefined,
+        deadline: parsed.deadline || undefined,
+      };
+
+      // Set prefill data and open modal in CREATE mode
+      setPrefillData(taskData);
+      setEditingTask(null); // Ensure we're in CREATE mode
+      setIsTaskModalVisible(true);
+      setNaturalInput(''); // Clear input
+    } catch (err: any) {
+      console.error('Parse error:', err);
+      alert('Impossible de parser la tâche. Veuillez réessayer.');
+    } finally {
+      setIsParsing(false);
     }
   };
 
@@ -97,15 +135,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Atlas</Text>
-        <View style={styles.profileCircle}>
-          <Text style={styles.profileText}>
-            {user?.name ? user.name.substring(0, 2).toUpperCase() : 'ME'}
-          </Text>
-        </View>
-      </View>
+      <Header userName={user?.name} />
 
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
@@ -128,34 +158,42 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* Natural Language Input Bar */}
+        <View style={styles.naturalInputContainer}>
+          <TextInput
+            style={styles.naturalInput}
+            placeholder="Décrivez votre tâche en langage naturel..."
+            placeholderTextColor="#999"
+            value={naturalInput}
+            onChangeText={setNaturalInput}
+            onSubmitEditing={handleParseAndCreate}
+            returnKeyType="send"
+            editable={!isParsing}
+          />
+          <TouchableOpacity 
+            style={[styles.parseButton, isParsing && styles.parseButtonDisabled]}
+            onPress={handleParseAndCreate}
+            disabled={isParsing || !naturalInput.trim()}
+          >
+            {isParsing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.parseButtonText}>✨</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
         {/* Full-width Plus Button */}
         <TouchableOpacity 
           style={styles.addButton} 
           activeOpacity={0.9}
-          onPress={handleAddTask}
+          onPress={handleOpenCreateModal}
         >
           <Text style={styles.addButtonText}>+ Nouvelle tâche</Text>
         </TouchableOpacity>
 
-        {/* AI Input Bar */}
-        <View style={styles.inputLabelContainer}>
-          <Text style={styles.inputLabel}>Assistant IA</Text>
-        </View>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Ex: 'Rappel pour mon cours à 14h'"
-            placeholderTextColor="#A0A0A0"
-            value={taskInput}
-            onChangeText={setTaskInput}
-            onSubmitEditing={handleAddTask}
-          />
-          <TouchableOpacity style={styles.aiButton}>
-            <Text style={styles.aiButtonText}>🪄</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Aujourd'hui Section */}
+        {/* AI Input Bar (Kept for quick AI add if needed later, or can be removed if strictly modal only) */}
+        {/* For now, simplified or just header */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Aujourd'hui</Text>
           <TouchableOpacity>
@@ -165,14 +203,34 @@ export default function HomeScreen() {
 
         <View style={styles.taskList}>
           {tasks.length > 0 ? (
-            tasks.map((task) => (
-              <TaskItem 
-                key={task.id} 
-                content={task.content} 
-                priority={task.priority} 
-                onEdit={() => handleEditTask(task)}
-              />
-            ))
+            (() => {
+              // Sort tasks: IN_PROGRESS first, then INBOX, then PLANNED, then COMPLETED
+              const sortedTasks = [...tasks].sort((a, b) => {
+                const statusOrder = { IN_PROGRESS: 0, INBOX: 1, PLANNED: 2, COMPLETED: 3 };
+                const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
+                const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
+                return orderA - orderB;
+              });
+
+              // Helper function to convert numeric priority to string
+              const getPriorityLabel = (priority: number): string => {
+                if (priority >= 8) return 'CRITICAL';
+                if (priority >= 6) return 'HIGH';
+                if (priority >= 4) return 'MEDIUM';
+                if (priority >= 1) return 'LOW';
+                return 'LOW';
+              };
+
+              return sortedTasks.map((task) => (
+                <TaskItem
+                  key={task.id}
+                  content={task.content}
+                  priority={getPriorityLabel(task.priority)}
+                  isCompleted={task.status === 'COMPLETED'}
+                  onEdit={() => handleEditTask(task)}
+                />
+              ));
+            })()
           ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>Aucune tâche pour aujourd'hui.</Text>
@@ -182,11 +240,12 @@ export default function HomeScreen() {
 
       </ScrollView>
 
-      <EditTaskModal
-        visible={isEditModalVisible}
+      <TaskModal
+        visible={isTaskModalVisible}
         task={editingTask}
-        onClose={() => setIsEditModalVisible(false)}
-        onSave={handleSaveEdit}
+        prefillData={prefillData}
+        onClose={() => setIsTaskModalVisible(false)}
+        onSave={handleSaveTask}
       />
     </SafeAreaView>
   );
@@ -200,34 +259,6 @@ const styles = StyleSheet.create({
   center: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    paddingTop: 32,
-    backgroundColor: '#fff',
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#1C1C1E',
-    letterSpacing: -0.5,
-  },
-  profileCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
   },
   scrollContent: {
     padding: 24,
@@ -257,6 +288,40 @@ const styles = StyleSheet.create({
     color: '#FF3B30',
     fontSize: 14,
     textAlign: 'center',
+  },
+  naturalInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  naturalInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1C1C1E',
+    paddingRight: 12,
+  },
+  parseButton: {
+    backgroundColor: '#007AFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  parseButtonDisabled: {
+    backgroundColor: '#C7C7CC',
+  },
+  parseButtonText: {
+    fontSize: 20,
   },
   addButton: {
     backgroundColor: '#1C1C1E',

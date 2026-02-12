@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import HomeScreen from './src/screens/HomeScreen';
+import { NavigationContainer } from '@react-navigation/native';
+import TabNavigator from './src/navigation/TabNavigator';
 import LoginScreen from './src/screens/LoginScreen';
 import { api } from './src/lib/api';
 
@@ -36,5 +37,9 @@ export default function App() {
     return <LoginScreen onLoginSuccess={setUser} />;
   }
 
-  return <HomeScreen />;
+  return (
+    <NavigationContainer>
+      <TabNavigator />
+    </NavigationContainer>
+  );
 }

@@ -6,20 +6,18 @@ import {
   TextInput, 
   TouchableOpacity, 
   StyleSheet, 
-  KeyboardAvoidingView, 
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
   ScrollView,
+  Switch,
 } from 'react-native';
 import { Task } from '../lib/api';
 import { Feather } from '@expo/vector-icons';
 
-interface EditTaskModalProps {
+interface TaskModalProps {
   visible: boolean;
-  task: Task | null;
+  task: Task | null; // If null, we are in CREATE mode
+  prefillData?: Partial<Task> | null; // Optional pre-fill data for CREATE mode
   onClose: () => void;
-  onSave: (id: string, updates: Partial<Task>) => Promise<void>;
+  onSave: (taskData: Partial<Task>) => Promise<void>;
 }
 
 const STATUS_OPTIONS: { label: string; value: Task['status'] }[] = [
@@ -42,36 +40,74 @@ const CONTEXT_OPTIONS: { label: string; value: Task['context'] }[] = [
   { label: 'Apprentissage', value: 'LEARNING' },
 ];
 
-export default function EditTaskModal({ visible, task, onClose, onSave }: EditTaskModalProps) {
+export default function TaskModal({ visible, task, prefillData, onClose, onSave }: TaskModalProps) {
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<Task['status']>('INBOX');
   const [type, setType] = useState<Task['type'] | undefined>(undefined);
   const [context, setContext] = useState<Task['context']>('PERSONAL');
   const [priority, setPriority] = useState(0);
-  const [estimatedDuration, setEstimatedDuration] = useState<string>(''); // Managed as string for input
-  const [deadline, setDeadline] = useState<string>(''); // YYYY-MM-DD for now
+  const [estimatedDuration, setEstimatedDuration] = useState<string>('');
+  const [deadline, setDeadline] = useState<string>('');
+  // We use a boolean toggle for "Today" assignment
+  const [isToday, setIsToday] = useState(false);
   
   const [isSaving, setIsSaving] = useState(false);
 
+  // Reset or populate form when visible/task changes
   useEffect(() => {
-    if (task) {
-      setContent(task.content);
-      setStatus(task.status);
-      setType(task.type);
-      setContext(task.context);
-      setPriority(task.priority);
-      setEstimatedDuration(task.estimatedDuration ? task.estimatedDuration.toString() : '');
-      // Format deadline to YYYY-MM-DD if exists
-      setDeadline(task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '');
+    if (visible) {
+      if (task) {
+        // EDIT Mode
+        setContent(task.content);
+        setStatus(task.status);
+        setType(task.type);
+        setContext(task.context);
+        setPriority(task.priority);
+        setEstimatedDuration(task.estimatedDuration ? task.estimatedDuration.toString() : '');
+        setDeadline(task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '');
+        
+        // Check if assignedDate is today
+        if (task.assignedDate) {
+          const taskDate = new Date(task.assignedDate).toISOString().split('T')[0];
+          const today = new Date().toISOString().split('T')[0];
+          setIsToday(taskDate === today);
+        } else {
+          setIsToday(false);
+        }
+      } else if (prefillData) {
+        // CREATE Mode with prefill data (from Gemini parsing)
+        setContent(prefillData.content || '');
+        setStatus(prefillData.status || 'INBOX');
+        setType(prefillData.type);
+        setContext(prefillData.context || 'PERSONAL');
+        setPriority(prefillData.priority || 0);
+        setEstimatedDuration(prefillData.estimatedDuration ? prefillData.estimatedDuration.toString() : '');
+        setDeadline(prefillData.deadline ? new Date(prefillData.deadline).toISOString().split('T')[0] : '');
+        setIsToday(false); // Gemini doesn't set assignedDate directly
+      } else {
+        // CREATE Mode - Reset defaults
+        setContent('');
+        setStatus('INBOX');
+        setType(undefined);
+        setContext('PERSONAL');
+        setPriority(0);
+        setEstimatedDuration('');
+        setDeadline('');
+        setIsToday(false); // Default to false or true based on preference? User asked for toggle.
+      }
     }
-  }, [task]);
+  }, [visible, task]);
+
+  const toggleToday = () => setIsToday(!isToday);
 
   const handleSave = async () => {
-    if (!task || !content.trim()) return;
+    if (!content.trim()) return;
     
     setIsSaving(true);
     try {
-      const updates: Partial<Task> = {
+      const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      
+      const taskData: Partial<Task> = {
         content: content.trim(),
         status,
         type,
@@ -79,13 +115,14 @@ export default function EditTaskModal({ visible, task, onClose, onSave }: EditTa
         priority,
         estimatedDuration: estimatedDuration ? parseInt(estimatedDuration, 10) : undefined,
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
+        assignedDate: isToday ? new Date(todayDate).toISOString() : undefined,
       };
       
-      await onSave(task.id, updates);
+      await onSave(taskData);
       onClose();
     } catch (error) {
       console.error('Failed to save task', error);
-      alert('Erreur lors de la modification');
+      alert('Erreur lors de l\'enregistrement');
     } finally {
       setIsSaving(false);
     }
@@ -136,7 +173,9 @@ export default function EditTaskModal({ visible, task, onClose, onSave }: EditTa
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <View style={styles.header}>
-            <Text style={styles.title}>Modifier la tâche</Text>
+            <Text style={styles.title}>
+              {task ? 'Modifier la tâche' : 'Nouvelle tâche'}
+            </Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Text style={styles.closeButtonText}>Annuler</Text>
             </TouchableOpacity>
@@ -149,7 +188,7 @@ export default function EditTaskModal({ visible, task, onClose, onSave }: EditTa
               style={styles.input}
               value={content}
               onChangeText={setContent}
-              placeholder="Contenu de la tâche"
+              placeholder="Qu'avez-vous en tête ?"
               multiline
             />
 
@@ -204,15 +243,32 @@ export default function EditTaskModal({ visible, task, onClose, onSave }: EditTa
               </View>
             </View>
 
-            {/* Deadline */}
+            {/* Dates Row */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Échéance (AAAA-MM-JJ)</Text>
-              <TextInput
-                style={styles.simpleInput}
-                value={deadline}
-                onChangeText={setDeadline}
-                placeholder="2024-12-31"
-              />
+              <Text style={styles.inputLabel}>Dates</Text>
+              
+              <View style={styles.dateRow}>
+                <View style={[styles.halfInput, styles.toggleContainer]}>
+                  <Text style={styles.subLabel}>Faire aujourd'hui</Text>
+                  <Switch
+                    trackColor={{ false: '#767577', true: '#34C759' }}
+                    thumbColor={isToday ? '#fff' : '#f4f3f4'}
+                    ios_backgroundColor="#3e3e3e"
+                    onValueChange={toggleToday}
+                    value={isToday}
+                  />
+                </View>
+
+                <View style={styles.halfInput}>
+                  <Text style={styles.subLabel}>Date limite (Deadline)</Text>
+                  <TextInput
+                    style={styles.dateInput}
+                    value={deadline}
+                    onChangeText={setDeadline}
+                    placeholder="Optionnel"
+                  />
+                </View>
+              </View>
             </View>
 
             <View style={styles.spacer} />
@@ -242,7 +298,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: '#fff', // Solid background instead of blur for stability
+    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     height: '90%',
@@ -382,6 +438,27 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 24,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  subLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#8E8E93',
+    marginBottom: 6,
+  },
+  toggleContainer: {
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  dateInput: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#1C1C1E',
   },
   spacer: {
     height: 100, // Space for footer
