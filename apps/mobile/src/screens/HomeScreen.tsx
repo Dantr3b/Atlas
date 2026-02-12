@@ -14,6 +14,8 @@ import { StatusBar } from 'expo-status-bar';
 import TaskItem from '../components/TaskItem';
 import { api, Task } from '../lib/api';
 
+import EditTaskModal from '../components/EditTaskModal';
+
 export default function HomeScreen() {
   const [taskInput, setTaskInput] = React.useState('');
   const [tasks, setTasks] = React.useState<Task[]>([]);
@@ -22,6 +24,7 @@ export default function HomeScreen() {
   const [error, setError] = React.useState<string | null>(null);
   const [user, setUser] = React.useState<{ name: string | null } | null>(null);
 
+  const [isEditModalVisible, setIsEditModalVisible] = React.useState(false);
   const [editingTask, setEditingTask] = React.useState<Task | null>(null);
 
   const fetchData = async () => {
@@ -60,27 +63,26 @@ export default function HomeScreen() {
     if (!taskInput.trim()) return;
     
     try {
-      if (editingTask) {
-        await api.updateTask(editingTask.id, { content: taskInput.trim() });
-        setEditingTask(null);
-      } else {
-        await api.createTask(taskInput.trim());
-      }
+      await api.createTask(taskInput.trim());
       setTaskInput('');
       fetchData(); // Refresh list
     } catch (err) {
-      alert('Erreur lors de l\'enregistrement de la tâche');
+      alert('Erreur lors de l\'ajout de la tâche');
     }
   };
 
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
-    setTaskInput(task.content);
+    setIsEditModalVisible(true);
   };
 
-  const handleCancelEdit = () => {
-    setEditingTask(null);
-    setTaskInput('');
+  const handleSaveEdit = async (id: string, updates: Partial<Task>) => {
+    try {
+      await api.updateTask(id, updates);
+      fetchData(); // Refresh list
+    } catch (err) {
+      throw err; // Let modal handle error
+    }
   };
 
   if (isLoading) {
@@ -128,25 +130,12 @@ export default function HomeScreen() {
 
         {/* Full-width Plus Button */}
         <TouchableOpacity 
-          style={[styles.addButton, editingTask && styles.updateButton]} 
+          style={styles.addButton} 
           activeOpacity={0.9}
           onPress={handleAddTask}
         >
-          <Text style={styles.addButtonText}>
-            {editingTask ? 'Modifier la tâche' : '+ Nouvelle tâche'}
-          </Text>
+          <Text style={styles.addButtonText}>+ Nouvelle tâche</Text>
         </TouchableOpacity>
-
-        {/* Cancel Edit Button */}
-        {editingTask && (
-          <TouchableOpacity 
-            style={styles.cancelButton} 
-            activeOpacity={0.7}
-            onPress={handleCancelEdit}
-          >
-            <Text style={styles.cancelButtonText}>Annuler modification</Text>
-          </TouchableOpacity>
-        )}
 
         {/* AI Input Bar */}
         <View style={styles.inputLabelContainer}>
@@ -192,6 +181,13 @@ export default function HomeScreen() {
         </View>
 
       </ScrollView>
+
+      <EditTaskModal
+        visible={isEditModalVisible}
+        task={editingTask}
+        onClose={() => setIsEditModalVisible(false)}
+        onSave={handleSaveEdit}
+      />
     </SafeAreaView>
   );
 }

@@ -18,9 +18,14 @@ export interface Task {
   id: string;
   content: string;
   status: 'INBOX' | 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED';
+  type?: 'QUICK' | 'DEEP_WORK' | 'COURSE' | 'ADMIN';
+  context: 'PERSONAL' | 'WORK' | 'LEARNING';
   priority: number;
   deadline?: string;
+  estimatedDuration?: number;
   assignedDate?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 class ApiError extends Error {
