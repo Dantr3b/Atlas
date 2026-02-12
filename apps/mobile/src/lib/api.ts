@@ -38,6 +38,47 @@ export interface ParsedTask {
   confidence: number;
 }
 
+export interface NewsArticle {
+  title: string;
+  description: string;
+  url: string;
+  urlToImage: string;
+  source: {
+    name: string;
+  };
+  publishedAt: string;
+}
+
+export interface GeneratedBrief {
+  intro: string;
+  weather: {
+    location: string;
+    description: string;
+    temperature: number;
+    minTemp: number;
+    maxTemp: number;
+    icon: string;
+    advice?: string;
+  };
+  news: {
+    summary: string;
+    sections: {
+      newsFrance: NewsArticle | null;
+      newsIntl: NewsArticle | null;
+      bizFrance: NewsArticle | null;
+      bizIntl: NewsArticle | null;
+      sports: NewsArticle | null;
+    };
+  };
+  tasks: {
+    id: string;
+    content: string;
+    priority: number;
+    deadline?: string;
+  }[];
+  fullText?: string;
+}
+
 class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -101,6 +142,17 @@ export const api = {
     const deadlineEnd = sunday.toISOString().split('T')[0];
     
     return fetchAPI(`/tasks?deadlineStart=${deadlineStart}&deadlineEnd=${deadlineEnd}`);
+  },
+
+  async getDailyBrief(): Promise<GeneratedBrief> {
+    const response = await fetchAPI<{
+      id: string;
+      date: string;
+      content: GeneratedBrief;
+      listened: boolean;
+      generatedAt: string;
+    }>('/brief/daily');
+    return response.content;
   },
 
   async createTask(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ task: Task }> {
