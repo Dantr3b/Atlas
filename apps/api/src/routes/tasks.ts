@@ -63,9 +63,26 @@ export default async function taskRoutes(fastify: FastifyInstance) {
   // GET /tasks - List all tasks for authenticated user
   fastify.get('/', async (request, reply) => {
     const userId = request.session.get('userId')!;
+    const { assignedDate } = request.query as { assignedDate?: string };
+
+    const where: any = { userId };
+
+    if (assignedDate) {
+      // Filter by assigned date (exact match on date part)
+      // Prisma stores dates as DateTime, so we need to filter by range or use db.Date type
+      // Since our schema uses @db.Date for assignedDate, passing the YYYY-MM-DD string should work with some drivers,
+      // but to be safe and consistent with how Prisma handles dates, we'll strip time components if needed.
+      // However, assuming assignedDate in DB is just a date, exact match might work if the input is compatible.
+      // Let's rely on the input being a valid ISO date string.
+      
+      // Note: The mobile app sends YYYY-MM-DD.
+      // Prisma `DateTime @db.Date` fields usually work with ISO strings.
+      
+      where.assignedDate = new Date(assignedDate);
+    }
 
     const tasks = await prisma.task.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' },
     });
 

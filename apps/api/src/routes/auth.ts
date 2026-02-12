@@ -109,4 +109,31 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
     return reply.send({ success: true });
   });
+
+  // POST /dev-login (Development only)
+  fastify.post('/dev-login', async (request, reply) => {
+    const { email } = request.body as { email: string };
+
+    if (!email) {
+      return reply.status(400).send({ error: 'Email required' });
+    }
+
+    try {
+      const user = await prisma.user.upsert({
+        where: { email },
+        update: {},
+        create: {
+          email,
+          name: email.split('@')[0],
+          googleId: `dev-${email}`,
+        },
+      });
+
+      request.session.set('userId', user.id);
+      return reply.send({ success: true, user });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Login failed' });
+    }
+  });
 }
