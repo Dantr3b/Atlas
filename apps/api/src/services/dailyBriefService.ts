@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface LocationContext {
   context: 'WORK' | 'LEARNING' | 'FREE';
-  location: 'Sophia' | 'FunKart'; // Default to Sophia for WORK/FREE, FunKart for LEARNING
+  location: 'Sophia' | 'FunKart' | 'Grasse';
   label: string;
 }
 
@@ -94,8 +94,10 @@ class DailyBriefService {
     console.log(`Found ${tasks.length} tasks for brief.`);
 
     // 5. Generate Intro
-    // "Bonjour, aujourd'hui vous travaillez à [Lieu]."
-    const locationName = weatherDestination === 'FunKart' ? 'Bar-sur-Loup (FunKart)' : 'Sophia Antipolis';
+    const locationName = 
+      weatherDestination === 'FunKart' ? 'Bar-sur-Loup (FunKart)' : 
+      weatherDestination === 'Sophia' ? 'Sophia Antipolis' :
+      'Grasse';
     const intro = `Bonjour ! Aujourd'hui, vous êtes à ${locationName}.`;
 
     // 6. Build Result
@@ -152,7 +154,9 @@ class DailyBriefService {
             weatherSummary: `${weatherData.weather.description}, ${weatherData.weather.temperature}°C (${weatherData.forecast.temperatureMin}°C / ${weatherData.forecast.temperatureMax}°C)`,
             newsSummary: brief.news.summary,
             tasksSummary: `${tasks.length} tâches prévues`,
-            generatedAt: new Date()
+            generatedAt: new Date(),
+            // Preserve the listened status - don't reset it
+            listened: existingBrief.listened
         }
       });
     } else {
@@ -222,7 +226,10 @@ class DailyBriefService {
      const events = await prisma.calendarEvent.findMany({
         where: {
           userId,
-          startTime: { gte: start, lt: end },
+          // Search for overlapping events:
+          // startTime < end AND endTime > start
+          startTime: { lt: end },
+          endTime: { gt: start },
         }
      });
 
@@ -232,24 +239,30 @@ class DailyBriefService {
      for (const event of events) {
         const calendarLabel = calendarMap.get(event.calendarId) || '';
         const labelOrId = (calendarLabel + ' ' + event.calendarId).toUpperCase();
+        const eventTitle = (event.summary || '').toUpperCase();
 
         if (labelOrId.includes('HYP') || labelOrId.includes('ROLLAND-BERTRAND') || labelOrId.includes('COURS')) {
              context = 'LEARNING';
              break; // Priority to Learning (Assumption: Fixed schedule) or Work?
              // Usually if you have Work and Course same day?
-             // Let's assume Learning takes precedence if present (e.g. going to school)
+             // Let's say Learning takes precedence for "School" context.
         }
-        if (labelOrId.includes('ALTERNANCE') || labelOrId.includes('TRAVAIL') || labelOrId.includes('WORK')) {
-             if (context === 'FREE') context = 'WORK';
+
+        // Check for specific work keywords in Title or Calendar Name
+        if (eventTitle.includes('FUNKART') || eventTitle === 'G' || labelOrId.includes('FUNKART')) {
+             context = 'WORK';
+             // We don't break immediately, in case there is a LEARNING event later which might take precedence?
+             // Actually, let's say WORK takes precedence if detected?
+             // Or let's keep iterating.
+             // If we already have LEARNING, do we switch to WORK?
+             // Maybe WORK > LEARNING.
         }
      }
-
-     // Map to Location
-     let location: 'Sophia' | 'FunKart' = 'Sophia'; // Default
-     if (context === 'LEARNING') {
-        location = 'Sophia'; // Learning (Cours) -> Sophia Antipolis
-     } else if (context === 'WORK') {
-        location = 'FunKart'; // Work (Travail) -> Fun-Kart (Bar-sur-Loup)
+     let location: 'Sophia' | 'FunKart' | 'Grasse' = 'Grasse'; // Default
+     if (context === 'WORK') {
+        location = 'FunKart'; // Work → FunKart (Bar-sur-Loup)
+     } else if (context === 'LEARNING') {
+        location = 'Sophia'; // Learning → Sophia Antipolis
      }
 
      return { context, location, label: context };

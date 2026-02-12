@@ -20,11 +20,23 @@ export default async function authRoutes(fastify: FastifyInstance) {
       },
       auth: fastifyOAuth2.GOOGLE_CONFIGURATION,
     },
-    startRedirectPath: '/google',
+    // startRedirectPath: '/google', // We handle this manually to add offline access
     callbackUri: 'http://localhost:3000/auth/google/callback',
   });
 
   const googleOAuth2 = fastify.googleOAuth2;
+
+  // Manual redirect to add offline access request
+  fastify.get('/google', async (request, reply) => {
+    // @ts-ignore - Fastify OAuth2 types might be tricky here with generateAuthorizationUri returning string or Promise
+    // In newer versions it might not be async, but let's check or handle both.
+    // Actually, based on the error "input: [object Promise]", it IS a Promise.
+    const authorizationUri = await googleOAuth2.generateAuthorizationUri(request, reply);
+    const url = new URL(authorizationUri);
+    url.searchParams.set('access_type', 'offline');
+    url.searchParams.set('prompt', 'consent'); // Force consent screen to get refresh token
+    return reply.redirect(url.toString());
+  });
 
   // GET /google/callback
   fastify.get('/google/callback', async (request, reply) => {

@@ -9,7 +9,9 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  Modal,
 } from 'react-native';
+import { Audio } from 'expo-av';
 import { StatusBar } from 'expo-status-bar';
 import { api, Task } from '../lib/api';
 import TaskItem from '../components/TaskItem';
@@ -27,8 +29,45 @@ export default function HomeScreen() {
   const [editingTask, setEditingTask] = React.useState<Task | null>(null);
   const [prefillData, setPrefillData] = React.useState<Partial<Task> | null>(null);
 
+  const [showBriefModal, setShowBriefModal] = React.useState(false);
+  const [showAudioControlModal, setShowAudioControlModal] = React.useState(false);
+  const [briefDate, setBriefDate] = React.useState<string>('');
+  const [sound, setSound] = React.useState<Audio.Sound | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = React.useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = React.useState(false);
+
   const [naturalInput, setNaturalInput] = React.useState('');
   const [isParsing, setIsParsing] = React.useState(false);
+
+  // Configure audio and check brief status on mount
+  React.useEffect(() => {
+    Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+    });
+
+    fetchData();
+    checkBriefStatus();
+
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, []);
+
+  const checkBriefStatus = async () => {
+    try {
+      const response = await api.getDailyBrief();
+      setBriefDate(response.date);
+      
+      if (!response.listened) {
+        setShowBriefModal(true);
+      }
+    } catch (err) {
+      console.error('Failed to check brief status:', err);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -121,6 +160,88 @@ export default function HomeScreen() {
     } finally {
       setIsParsing(false);
     }
+  };
+
+  const handlePlayBriefAudio = async () => {
+    try {
+      if (isPlayingAudio && sound) {
+        await sound.pauseAsync();
+        setIsPlayingAudio(false);
+        return;
+      }
+
+      if (sound && !isPlayingAudio) {
+        await sound.playAsync();
+        setIsPlayingAudio(true);
+        return;
+      }
+
+      setIsLoadingAudio(true);
+      setShowAudioControlModal(true); // Show control modal
+      const audioData = await api.getDailyBriefAudio();
+      
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: audioData },
+        { shouldPlay: true }
+      );
+
+      newSound.setOnPlaybackStatusUpdate((status: any) => {
+        if (status.isLoaded && status.didJustFinish) {
+          setIsPlayingAudio(false);
+          setShowAudioControlModal(false);
+        }
+      });
+
+      setSound(newSound);
+      setIsPlayingAudio(true);
+    } catch (err) {
+      console.error('Failed to play audio:', err);
+      setShowAudioControlModal(false);
+    } finally {
+      setIsLoadingAudio(false);
+    }
+  };
+
+  const handleListenFromModal = async () => {
+    setShowBriefModal(false);
+    try {
+      await api.markBriefListened(briefDate);
+    } catch (err) {
+      console.error('Failed to mark brief as listened:', err);
+    }
+    await handlePlayBriefAudio();
+  };
+
+  const handleDismissBriefModal = async () => {
+    setShowBriefModal(false);
+    try {
+      await api.markBriefListened(briefDate);
+    } catch (err) {
+      console.error('Failed to mark brief as listened:', err);
+    }
+  };
+
+  const handleTogglePlayPause = async () => {
+    if (!sound) return;
+    
+    if (isPlayingAudio) {
+      await sound.pauseAsync();
+      setIsPlayingAudio(false);
+    } else {
+      await sound.playAsync();
+      setIsPlayingAudio(true);
+    }
+  };
+
+  const handleCloseAudioModal = async () => {
+    // Stop and unload audio
+    if (sound) {
+      await sound.stopAsync();
+      await sound.unloadAsync();
+      setSound(null);
+    }
+    setIsPlayingAudio(false);
+    setShowAudioControlModal(false);
   };
 
   if (isLoading) {
@@ -221,15 +342,68 @@ export default function HomeScreen() {
                 return 'LOW';
               };
 
-              return sortedTasks.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  content={task.content}
-                  priority={getPriorityLabel(task.priority)}
-                  isCompleted={task.status === 'COMPLETED'}
-                  onEdit={() => handleEditTask(task)}
-                />
-              ));
+              // Group tasks by status
+              const inProgressTasks = sortedTasks.filter(t => t.status === 'IN_PROGRESS');
+              const plannedInboxTasks = sortedTasks.filter(t => t.status === 'PLANNED' || t.status === 'INBOX');
+              const completedTasks = sortedTasks.filter(t => t.status === 'COMPLETED');
+
+              return (
+                <>
+                  {/* In Progress Section */}
+                  {inProgressTasks.length > 0 && (
+                    <>
+                      <View style={styles.statusSectionHeader}>
+                        <Text style={styles.statusSectionTitle}>En cours</Text>
+                      </View>
+                      {inProgressTasks.map((task) => (
+                        <TaskItem
+                          key={task.id}
+                          content={task.content}
+                          priority={getPriorityLabel(task.priority)}
+                          isCompleted={false}
+                          onEdit={() => handleEditTask(task)}
+                        />
+                      ))}
+                    </>
+                  )}
+
+                  {/* Planned/Inbox Section */}
+                  {plannedInboxTasks.length > 0 && (
+                    <>
+                      <View style={styles.statusSectionHeader}>
+                        <Text style={styles.statusSectionTitle}>Planifié</Text>
+                      </View>
+                      {plannedInboxTasks.map((task) => (
+                        <TaskItem
+                          key={task.id}
+                          content={task.content}
+                          priority={getPriorityLabel(task.priority)}
+                          isCompleted={false}
+                          onEdit={() => handleEditTask(task)}
+                        />
+                      ))}
+                    </>
+                  )}
+
+                  {/* Completed Section */}
+                  {completedTasks.length > 0 && (
+                    <>
+                      <View style={styles.statusSectionHeader}>
+                        <Text style={styles.statusSectionTitle}>Terminé</Text>
+                      </View>
+                      {completedTasks.map((task) => (
+                        <TaskItem
+                          key={task.id}
+                          content={task.content}
+                          priority={getPriorityLabel(task.priority)}
+                          isCompleted={true}
+                          onEdit={() => handleEditTask(task)}
+                        />
+                      ))}
+                    </>
+                  )}
+                </>
+              );
             })()
           ) : (
             <View style={styles.emptyContainer}>
@@ -247,6 +421,88 @@ export default function HomeScreen() {
         onClose={() => setIsTaskModalVisible(false)}
         onSave={handleSaveTask}
       />
+
+      {/* Brief Listening Modal */}
+      <Modal
+        visible={showBriefModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleDismissBriefModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalIcon}>🎧</Text>
+            <Text style={styles.modalTitle}>Brief du matin</Text>
+            <Text style={styles.modalMessage}>
+              Votre brief quotidien est prêt. Voulez-vous l'écouter maintenant ?
+            </Text>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={handleDismissBriefModal}
+              >
+                <Text style={styles.modalButtonTextSecondary}>Plus tard</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleListenFromModal}
+                disabled={isLoadingAudio}
+              >
+                {isLoadingAudio ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonTextPrimary}>🔊 Écouter</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Audio Control Modal */}
+      <Modal
+        visible={showAudioControlModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseAudioModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.audioControlContent}>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={handleCloseAudioModal}
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+            
+            <Text style={styles.audioControlIcon}>🎧</Text>
+            <Text style={styles.audioControlTitle}>Brief du matin</Text>
+            
+            {isLoadingAudio ? (
+              <>
+                <ActivityIndicator size="large" color="#007AFF" style={styles.audioLoader} />
+                <Text style={styles.audioControlSubtitle}>Chargement de l'audio...</Text>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.playPauseButton}
+                  onPress={handleTogglePlayPause}
+                >
+                  <Text style={styles.playPauseIcon}>
+                    {isPlayingAudio ? '⏸️' : '▶️'}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={styles.audioControlSubtitle}>
+                  {isPlayingAudio ? 'En cours de lecture...' : 'En pause'}
+                </Text>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -415,5 +671,138 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#8E8E93',
     fontSize: 16,
-  }
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 32,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonPrimary: {
+    backgroundColor: '#007AFF',
+  },
+  modalButtonSecondary: {
+    backgroundColor: '#F2F2F7',
+  },
+  modalButtonTextPrimary: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonTextSecondary: {
+    color: '#1C1C1E',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  audioControlContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 40,
+    width: '100%',
+    maxWidth: 350,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F2F2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: '#8E8E93',
+    fontWeight: '600',
+  },
+  audioControlIcon: {
+    fontSize: 72,
+    marginBottom: 16,
+  },
+  audioControlTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  audioControlSubtitle: {
+    fontSize: 15,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  audioLoader: {
+    marginVertical: 20,
+  },
+  playPauseButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  playPauseIcon: {
+    fontSize: 36,
+  },
 });

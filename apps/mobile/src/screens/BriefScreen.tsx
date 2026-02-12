@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Audio } from 'expo-av';
 import Header from '../components/Header';
 import { api, GeneratedBrief, NewsArticle } from '../lib/api';
 
@@ -49,12 +50,30 @@ export default function BriefScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+
+  useEffect(() => {
+    // Configure audio mode
+    Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+    });
+
+    return () => {
+      // Cleanup sound on unmount
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, [sound]);
 
   const fetchData = async () => {
     try {
       setError(null);
-      const briefData = await api.getDailyBrief();
-      setBrief(briefData);
+      const response = await api.getDailyBrief();
+      setBrief(response.content);
     } catch (err: any) {
       setError(err.message || 'Erreur lors du chargement du brief');
     } finally {
@@ -70,6 +89,46 @@ export default function BriefScreen() {
     setIsRefreshing(true);
     await fetchData();
     setIsRefreshing(false);
+  };
+
+  const handlePlayAudio = async () => {
+    try {
+      // If already playing, pause it
+      if (isPlaying && sound) {
+        await sound.pauseAsync();
+        setIsPlaying(false);
+        return;
+      }
+
+      // If paused, resume
+      if (sound && !isPlaying) {
+        await sound.playAsync();
+        setIsPlaying(true);
+        return;
+      }
+
+      // Load and play new audio
+      setIsLoadingAudio(true);
+      const audioData = await api.getDailyBriefAudio();
+      
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: audioData },
+        { shouldPlay: true }
+      );
+
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          setIsPlaying(false);
+        }
+      });
+
+      setSound(newSound);
+      setIsPlaying(true);
+    } catch (err) {
+      console.error('Failed to play audio:', err);
+    } finally {
+      setIsLoadingAudio(false);
+    }
   };
 
   if (isLoading) {
@@ -141,16 +200,29 @@ export default function BriefScreen() {
           )}
         </View>
 
-        {/* Header */}
+        {/* Header with Audio Player */}
         <View style={styles.briefHeader}>
-          <Text style={styles.briefTitle}>☕ Brief du matin</Text>
-          <Text style={styles.briefDate}>
-            {new Date().toLocaleDateString('fr-FR', { 
-              weekday: 'long', 
-              day: 'numeric', 
-              month: 'long' 
-            })}
-          </Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.briefTitle}>☕ Brief du matin</Text>
+            <Text style={styles.briefDate}>
+              {new Date().toLocaleDateString('fr-FR', { 
+                weekday: 'long', 
+                day: 'numeric', 
+                month: 'long' 
+              })}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.audioButton, isPlaying && styles.audioButtonPlaying]}
+            onPress={handlePlayAudio}
+            disabled={isLoadingAudio}
+          >
+            {isLoadingAudio ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.audioIcon}>{isPlaying ? '⏹️' : '🔊'}</Text>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Gemini Summary */}
@@ -293,7 +365,13 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   briefHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
+  },
+  headerLeft: {
+    flex: 1,
   },
   briefTitle: {
     fontSize: 28,
@@ -305,6 +383,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#8E8E93',
     textTransform: 'capitalize',
+  },
+  audioButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  audioButtonPlaying: {
+    backgroundColor: '#FF3B30',
+  },
+  audioIcon: {
+    fontSize: 24,
   },
   summaryCard: {
     backgroundColor: '#F0F0FF',
@@ -385,5 +482,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#C7C7CC',
     fontStyle: 'italic',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 32,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonPrimary: {
+    backgroundColor: '#007AFF',
+  },
+  modalButtonSecondary: {
+    backgroundColor: '#F2F2F7',
+  },
+  modalButtonTextPrimary: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonTextSecondary: {
+    color: '#1C1C1E',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

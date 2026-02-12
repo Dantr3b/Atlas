@@ -144,15 +144,38 @@ export const api = {
     return fetchAPI(`/tasks?deadlineStart=${deadlineStart}&deadlineEnd=${deadlineEnd}`);
   },
 
-  async getDailyBrief(): Promise<GeneratedBrief> {
-    const response = await fetchAPI<{
-      id: string;
-      date: string;
-      content: GeneratedBrief;
-      listened: boolean;
-      generatedAt: string;
-    }>('/brief/daily');
-    return response.content;
+  async getDailyBrief(): Promise<{
+    id: string;
+    date: string;
+    content: GeneratedBrief;
+    listened: boolean;
+    generatedAt: string;
+  }> {
+    return fetchAPI('/brief/daily');
+  },
+
+  async markBriefListened(date: string): Promise<{ success: boolean; listened: boolean }> {
+    return fetchAPI(`/brief/${date}/listened`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
+
+  async getDailyBriefAudio(): Promise<string> {
+    const response = await fetch(`${API_URL}/brief/audio`, {
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to generate audio');
+    }
+    const blob = await response.blob();
+    // Convert blob to base64 for React Native
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   },
 
   async createTask(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ task: Task }> {

@@ -8,7 +8,7 @@ interface HeaderProps {
 export default function Header({ userName }: HeaderProps) {
   const initials = userName 
     ? userName.substring(0, 2).toUpperCase() 
-    : 'ME';
+    : 'GA';
 
   return (
     <View style={styles.header}>

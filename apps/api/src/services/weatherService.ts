@@ -34,6 +34,7 @@ export interface WeatherResponse {
 const LOCATIONS = {
   FunKart: { lat: 43.7011, lon: 6.9897, name: 'Le Bar-sur-Loup' },
   Sophia: { lat: 43.6174, lon: 7.0574, name: 'Sophia Antipolis' },
+  Grasse: { lat: 43.6584, lon: 6.9222, name: 'Grasse' },
 };
 
 // Weather code to description and icon mapping (WMO Weather interpretation codes)
@@ -65,7 +66,7 @@ const WEATHER_CODES: Record<number, { description: string; icon: string }> = {
 };
 
 export class WeatherService {
-  async getWeather(destination: 'FunKart' | 'Sophia'): Promise<WeatherResponse> {
+  async getWeather(destination: 'FunKart' | 'Sophia' | 'Grasse'): Promise<WeatherResponse> {
     const location = LOCATIONS[destination];
     if (!location) {
       throw new Error('Invalid destination');

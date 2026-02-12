@@ -6,9 +6,8 @@ import { GoogleCalendarService } from '../lib/google-calendar.js';
  * Sync calendar events from Google Calendar every 15 minutes
  */
 export function startCalendarSync() {
-  // Run every 15 minutes
-  cron.schedule('*/15 * * * *', async () => {
-    console.log('[CRON] Starting calendar sync...');
+  const runSync = async () => {
+    console.log('[CRON] Starting calendar sync (Manual Trigger)...');
 
     try {
       // Get all users with calendar configurations
@@ -92,7 +91,16 @@ export function startCalendarSync() {
     } catch (error) {
       console.error('[CRON] Error in calendar sync cron job:', error);
     }
+  };
+
+  // Run on startup
+  runSync();
+
+  // Run every 15 minutes
+  cron.schedule('*/15 * * * *', () => {
+    console.log('[CRON] Scheduled sync check...');
+    runSync();
   });
 
-  console.log('📅 Calendar sync cron job started (runs every 15 minutes)');
+  console.log('📅 Calendar sync cron job started (runs every 15 minutes + on startup)');
 }
